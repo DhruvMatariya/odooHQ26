@@ -1,6 +1,6 @@
 import React from 'react';
 import { KPICard } from './KPICard';
-import { Receipt, Fuel, Wrench, TrendingDown, TrendingUp, DollarSign, BarChart3 } from 'lucide-react';
+import { Gauge, Fuel, Wrench, TrendingDown, TrendingUp, IndianRupee, BarChart3 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, CartesianGrid,
@@ -143,10 +143,10 @@ export function FinanceDashboard({ onNavigate }: FinanceDashboardProps) {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          <KPICard key="total"  label="Total OpEx (YTD)"    value={fmt(totalOpex)}  icon={<DollarSign size={18} />}  accent="#004643" trend="up"   trendText="+8% vs last year" />,
+          <KPICard key="total"  label="Total OpEx (YTD)"    value={fmt(totalOpex)}  icon={<IndianRupee size={18} />}  accent="#004643" trend="up"   trendText="+8% vs last year" />,
           <KPICard key="fuel"   label="Fuel Cost (YTD)"     value={fmt(totalFuel)}  icon={<Fuel size={18} />}        accent="#1D6FE0" trend="up"   trendText="+12% vs last year" />,
           <KPICard key="maint"  label="Maintenance (YTD)"   value={fmt(totalMaint)} icon={<Wrench size={18} />}      accent="#D98F1F" trend="down" trendText="−5% vs last year" />,
-          <KPICard key="eff"    label="Avg Fuel Efficiency"  value={`${avgEfficiency} km/L`} icon={<Receipt size={18} />} accent="#1E9E5A" trend="up" trendText="+0.4 vs last month" />,
+          <KPICard key="eff"    label="Avg Fuel Efficiency"  value={`${avgEfficiency} km/L`} icon={<Gauge size={18} />} accent="#1E9E5A" trend="up" trendText="+0.4 vs last month" />,
         ].map((card, i) => (
           <div key={i} style={{ animation: `fadeUp 0.45s ease ${0.05 * i + 0.1}s both` }}>{card}</div>
         ))}
