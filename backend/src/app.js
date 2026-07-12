@@ -16,4 +16,4 @@ app.use("/api/v1", routes);
 app.use(notFound);
 app.use(errorHandler); // must be last
 
-export default app;
+export default app; 
