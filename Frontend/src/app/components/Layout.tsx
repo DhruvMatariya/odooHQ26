@@ -122,7 +122,7 @@ function ProfileDropdown({ user, onLogout }: { user: User; onLogout: () => void 
         <div style={{
           width: 32, height: 32, borderRadius: '50%',
           background: 'linear-gradient(135deg, #004643 0%, #006b65 100%)',
-          color: '#F0EDE5',
+          color: '#E3E5DF',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '12px', fontWeight: 700,
           boxShadow: '0 1px 4px rgba(0,70,67,0.35)',
@@ -217,7 +217,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
   const sidebarW = collapsed ? 64 : 240;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F0EDE5' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#E3E5DF' }}>
       {/* Sidebar */}
       <div
         style={{
@@ -239,14 +239,14 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: '8px',
-            background: '#F0EDE5',
+            background: '#E3E5DF',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>
             <Truck size={18} color="#004643" />
           </div>
           {!collapsed && (
-            <span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '16px', color: '#F0EDE5', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '16px', color: '#E3E5DF', whiteSpace: 'nowrap' }}>
               TransitOps
             </span>
           )}
@@ -265,7 +265,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: collapsed ? '10px 0' : '10px 12px',
                   borderRadius: '8px', border: 'none', cursor: 'pointer',
-                  background: isActive ? '#F0EDE5' : 'transparent',
+                  background: isActive ? '#E3E5DF' : 'transparent',
                   color: isActive ? '#004643' : 'rgba(255,255,255,0.75)',
                   fontWeight: isActive ? 600 : 400, fontSize: '14px',
                   transition: 'all 0.15s',

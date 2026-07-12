@@ -138,7 +138,7 @@ export function Auth({ onLogin }: AuthProps) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0EDE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#E3E5DF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {/* Background decoration */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
         <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'rgba(0,70,67,0.06)' }} />
@@ -149,7 +149,7 @@ export function Auth({ onLogin }: AuthProps) {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, borderRadius: '12px', background: '#004643', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-            <Truck size={24} color="#F0EDE5" />
+            <Truck size={24} color="#E3E5DF" />
           </div>
           <h1 style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '22px', color: '#1A1F27', margin: '0 0 4px' }}>TransitOps</h1>
           <p style={{ color: '#6B7280', fontSize: '13px', margin: 0 }}>
