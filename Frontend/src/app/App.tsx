@@ -11,6 +11,7 @@ import { FuelLogs } from './components/FuelLogs';
 import { Expenses } from './components/Expenses';
 import { Reports } from './components/Reports';
 import type { Role, PageKey } from './components/Layout';
+import { clearToken } from '../lib/api';
 
 interface User {
   id: string;
@@ -36,6 +37,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    clearToken();   // remove JWT from localStorage
     setUser(null);
     setPage('dashboard');
   }
