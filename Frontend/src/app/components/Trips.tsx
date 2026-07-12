@@ -395,7 +395,7 @@ export function Trips({ userRole }: TripsProps) {
           <input placeholder="Search routes…" style={{ ...INPUT_STYLE, paddingLeft: 32, width: 240 }}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        {search && <button onClick={() => setSearch('')} style={BTN_GHOST}><X size={13} style={{ marginRight: 4 }} />Clear</button>}
+        {search && <button onClick={() => setSearch('')} style={{ ...BTN_GHOST, display: 'flex', alignItems: 'center', gap: 4 }}><X size={13} />Clear</button>}
         <span style={{ marginLeft: 'auto', fontSize: '13px', color: '#6B7280' }}>{filtered.length} trip{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 

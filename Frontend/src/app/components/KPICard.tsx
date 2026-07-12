@@ -24,10 +24,11 @@ export function KPICard({ label, value, icon, trend, trendText, accent = '#00464
         border: '1px solid rgba(0,0,0,0.06)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
+        minHeight: '120px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Label + Icon row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ fontSize: '12px', color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {label}
         </span>
@@ -36,20 +37,25 @@ export function KPICard({ label, value, icon, trend, trendText, accent = '#00464
             width: 36, height: 36, borderRadius: '8px',
             background: accent + '18',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent,
+            flexShrink: 0,
           }}>
             {icon}
           </div>
         )}
       </div>
-      <div style={{ fontSize: '28px', fontWeight: 700, color: '#1A1F27', lineHeight: 1.1, fontFamily: 'Poppins, Inter, sans-serif' }}>
+      {/* Value — takes up remaining space so trend row always sits at the bottom */}
+      <div style={{ fontSize: '28px', fontWeight: 700, color: '#1A1F27', lineHeight: 1.1, fontFamily: 'Poppins, Inter, sans-serif', flex: 1 }}>
         {value}
       </div>
-      {trendText && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: trendColor, fontSize: '12px', fontWeight: 500 }}>
-          <TrendIcon size={14} />
-          <span>{trendText}</span>
-        </div>
-      )}
+      {/* Trend row — always present (empty placeholder keeps height consistent) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: trendColor, fontSize: '12px', fontWeight: 500, marginTop: 10, minHeight: 20 }}>
+        {trendText && (
+          <>
+            <TrendIcon size={14} />
+            <span>{trendText}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

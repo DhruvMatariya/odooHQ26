@@ -133,7 +133,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
           <option value="">All vehicles</option>
           {ALL_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.reg}</option>)}
         </select>
-        {filterVehicle && <button onClick={() => setFilterVehicle('')} style={BTN_GHOST}><X size={13} style={{ marginRight: 4 }} />Clear</button>}
+        {filterVehicle && <button onClick={() => setFilterVehicle('')} style={{ ...BTN_GHOST, display: 'flex', alignItems: 'center', gap: 4 }}><X size={13} />Clear</button>}
         <span style={{ marginLeft: 'auto', fontSize: '13px', color: '#6B7280' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 

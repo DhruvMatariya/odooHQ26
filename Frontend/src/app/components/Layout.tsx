@@ -1,7 +1,8 @@
-import { useState, ReactNode } from 'react';
+import { useState, useRef, useEffect, ReactNode } from 'react';
 import {
   LayoutDashboard, Truck, Users, MapPin, Wrench, Fuel,
-  Receipt, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu,
+  Receipt, BarChart3, ChevronLeft, ChevronRight,
+  LogOut, UserCircle,
 } from 'lucide-react';
 
 export type Role = 'FLEET_MANAGER' | 'DRIVER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST';
@@ -57,12 +58,162 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+/* ── Profile dropdown ── */
+function ProfileDropdown({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const initials = user.name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const menuItems = [
+    {
+      id: 'edit',
+      label: 'Edit Profile',
+      icon: <UserCircle size={15} />,
+      onClick: () => { setOpen(false); /* TODO: open edit profile modal */ },
+      color: '#1A1F27',
+      hoverBg: '#F3F4F6',
+    },
+    {
+      id: 'logout',
+      label: 'Logout',
+      icon: <LogOut size={15} />,
+      onClick: () => { setOpen(false); onLogout(); },
+      color: '#B3261E',
+      hoverBg: '#FEE2E2',
+    },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      {/* Avatar button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        title={user.name}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: open ? 'rgba(0,70,67,0.08)' : 'transparent',
+          border: '2px solid transparent',
+          borderRadius: '999px',
+          padding: '3px 10px 3px 3px',
+          cursor: 'pointer',
+          transition: 'background 0.18s, border-color 0.18s',
+          outline: 'none',
+        }}
+        onMouseEnter={e => { if (!open) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,70,67,0.07)'; }}
+        onMouseLeave={e => { if (!open) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+      >
+        {/* Avatar circle */}
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #004643 0%, #006b65 100%)',
+          color: '#F0EDE5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '12px', fontWeight: 700,
+          boxShadow: '0 1px 4px rgba(0,70,67,0.35)',
+          flexShrink: 0,
+          transition: 'box-shadow 0.18s',
+        }}>
+          {initials}
+        </div>
+        <span style={{ fontSize: '14px', fontWeight: 500, color: '#1A1F27', whiteSpace: 'nowrap' }}>
+          {user.name}
+        </span>
+        {/* Chevron indicator */}
+        <svg
+          width="12" height="12" viewBox="0 0 12 12" fill="none"
+          style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', color: '#6B7280' }}
+        >
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          background: '#fff',
+          borderRadius: '12px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.06)',
+          border: '1px solid rgba(0,0,0,0.07)',
+          minWidth: 200,
+          zIndex: 999,
+          overflow: 'hidden',
+          animation: 'dropdownIn 0.18s cubic-bezier(0.22,1,0.36,1)',
+        }}>
+          {/* User info header */}
+          <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#1A1F27' }}>{user.name}</p>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6B7280' }}>{user.email}</p>
+          </div>
+          {/* Menu items */}
+          <div style={{ padding: '6px' }}>
+            {menuItems.map(item => (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                onMouseEnter={() => setHovered(item.id)}
+                onMouseLeave={() => setHovered(null)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '9px 12px',
+                  borderRadius: '8px', border: 'none',
+                  background: hovered === item.id ? item.hoverBg : 'transparent',
+                  color: hovered === item.id ? item.color : '#374151',
+                  fontSize: '13px', fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, color 0.15s',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ color: hovered === item.id ? item.color : '#6B7280', transition: 'color 0.15s' }}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Layout({ user, currentPage, onNavigate, onLogout, children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
+  // Inject dropdown animation keyframe once
+  useEffect(() => {
+    if (!document.getElementById('layout-kf')) {
+      const s = document.createElement('style');
+      s.id = 'layout-kf';
+      s.textContent = `
+        @keyframes dropdownIn {
+          from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)   scale(1);    }
+        }
+      `;
+      document.head.appendChild(s);
+    }
+  }, []);
+
   const visibleNav = NAV_ITEMS.filter(n => n.roles.includes(user.role));
   const roleStyle = ROLE_COLOR[user.role];
-
   const sidebarW = collapsed ? 64 : 240;
 
   return (
@@ -70,14 +221,11 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
       {/* Sidebar */}
       <div
         style={{
-          width: sidebarW,
-          minWidth: sidebarW,
+          width: sidebarW, minWidth: sidebarW,
           background: '#004643',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
           transition: 'width 0.2s ease',
-          overflow: 'hidden',
-          zIndex: 10,
+          overflow: 'hidden', zIndex: 10,
           boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
         }}
       >
@@ -85,9 +233,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
         <div style={{
           padding: collapsed ? '20px 0' : '20px 20px',
           borderBottom: '1px solid #003835',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
+          display: 'flex', alignItems: 'center', gap: 10,
           justifyContent: collapsed ? 'center' : 'flex-start',
           minHeight: 64,
         }}>
@@ -100,10 +246,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
             <Truck size={18} color="#004643" />
           </div>
           {!collapsed && (
-            <span style={{
-              fontFamily: 'Poppins, sans-serif',
-              fontWeight: 700, fontSize: '16px', color: '#F0EDE5', whiteSpace: 'nowrap',
-            }}>
+            <span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '16px', color: '#F0EDE5', whiteSpace: 'nowrap' }}>
               TransitOps
             </span>
           )}
@@ -119,22 +262,15 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
                 onClick={() => onNavigate(item.key)}
                 title={collapsed ? item.label : undefined}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
+                  display: 'flex', alignItems: 'center', gap: 10,
                   padding: collapsed ? '10px 0' : '10px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer',
+                  borderRadius: '8px', border: 'none', cursor: 'pointer',
                   background: isActive ? '#F0EDE5' : 'transparent',
                   color: isActive ? '#004643' : 'rgba(255,255,255,0.75)',
-                  fontWeight: isActive ? 600 : 400,
-                  fontSize: '14px',
+                  fontWeight: isActive ? 600 : 400, fontSize: '14px',
                   transition: 'all 0.15s',
                   justifyContent: collapsed ? 'center' : 'flex-start',
-                  whiteSpace: 'nowrap',
-                  width: '100%',
-                  textAlign: 'left',
+                  whiteSpace: 'nowrap', width: '100%', textAlign: 'left',
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {
@@ -168,8 +304,14 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
               width: '100%', justifyContent: collapsed ? 'center' : 'flex-start',
               fontSize: '13px',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#005a55'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)'; }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#005a55';
+              (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+              (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)';
+            }}
           >
             {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /><span>Collapse</span></>}
           </button>
@@ -195,29 +337,8 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
           }}>
             {ROLE_LABEL[user.role]}
           </span>
-          {/* User name */}
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: '#004643', color: '#F0EDE5',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '13px', fontWeight: 700,
-          }}>
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <span style={{ fontSize: '14px', fontWeight: 500, color: '#1A1F27' }}>{user.name}</span>
-          <button
-            onClick={onLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-              background: '#fff', color: '#6B7280', fontSize: '13px', cursor: 'pointer',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#FEE2E2'; (e.currentTarget as HTMLButtonElement).style.color = '#B3261E'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; (e.currentTarget as HTMLButtonElement).style.color = '#6B7280'; }}
-          >
-            <LogOut size={14} />
-            <span>Logout</span>
-          </button>
+          {/* Profile avatar dropdown (replaces logout button) */}
+          <ProfileDropdown user={user} onLogout={onLogout} />
         </div>
 
         {/* Page content */}
