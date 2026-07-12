@@ -1,0 +1,72 @@
+# ============================================================
+# Root .gitignore — odooHQ26 monorepo
+# Covers: Frontend (Vite + React), Backend (Node.js + Prisma)
+# ============================================================
+
+# ------ Dependencies ----------------------------------------
+node_modules/
+.pnp
+.pnp.js
+
+# ------ Build outputs ---------------------------------------
+dist/
+dist-ssr/
+build/
+out/
+.output/
+
+# ------ Environment & secrets (NEVER commit these) ----------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# ------ Logs ------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------ Vite / Frontend -------------------------------------
+*.local
+Frontend/.vite/
+Frontend/dist/
+
+# ------ Prisma ----------------------------------------------
+# Keep schema.prisma in git; ignore generated client & migrations lock
+backend/prisma/generated/
+# Uncomment if you do NOT want to track migration SQL files:
+# backend/prisma/migrations/
+
+# ------ OS artifacts ----------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------ Editor & IDE ----------------------------------------
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+
+# ------ Testing / Coverage ----------------------------------
+coverage/
+*.lcov
+.nyc_output/
+
+# ------ Misc ------------------------------------------------
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
