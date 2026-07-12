@@ -51,10 +51,12 @@ export async function getVehicleReport(req, res) {
   const fuelEfficiency = totalFuelLiters === 0 ? 0 : totalDistance / totalFuelLiters;
   const operationalCost = totalFuelCost + totalMaintenanceCost;
 
-  // No revenue field in the schema yet — plug in a per-trip revenue source
-  // once the team decides where that number comes from (flat rate? per km?).
-  const revenue = 0;
+  // Revenue = total completed-trip distance × a flat rate per km, set via
+  // REVENUE_PER_KM in .env. Swap this for a per-vehicle-type rate later if
+  // the team wants finer granularity — this is the fastest correct v1.
+  const ratePerKm = Number(process.env.REVENUE_PER_KM ?? 50);
+  const revenue = totalDistance * ratePerKm;
   const roi = vehicle.acquisitionCost === 0 ? 0 : (revenue - operationalCost) / vehicle.acquisitionCost;
 
-  res.json({ fuelEfficiency, operationalCost, roi });
+  res.json({ fuelEfficiency, operationalCost, revenue, roi });
 }
