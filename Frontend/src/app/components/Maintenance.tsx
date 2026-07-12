@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, X, AlertTriangle, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -7,32 +7,11 @@ import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import { apiGetMaintenanceLogs, apiCreateMaintenance, apiCloseMaintenance, apiGetVehicles, type ApiMaintenanceLog, type ApiVehicle, ApiError } from '../../lib/api';
 
-interface MaintenanceLog {
-  id: string;
-  vehicleId: string;
-  vehicleName: string;
-  vehicleReg: string;
-  vehicleStatus: string;
-  description: string;
-  cost: number;
-  isActive: boolean;
-  dateOpened: string;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
-const VEHICLES_FOR_MAINT = [
-  { id: '1', reg: 'KCB 123A', name: 'Toyota Hino 300', status: 'AVAILABLE' },
-  { id: '4', reg: 'KDB 321D', name: 'MAN TGX 26.440', status: 'AVAILABLE' },
-  { id: '6', reg: 'KDH 910F', name: 'Mitsubishi Fuso', status: 'AVAILABLE' },
-  { id: '2', reg: 'KBZ 456B', name: 'Mercedes Sprinter', status: 'ON_TRIP' },
-];
-
-const INITIAL_LOGS: MaintenanceLog[] = [
-  { id: '1', vehicleId: '3', vehicleName: 'Isuzu FRR 90L',   vehicleReg: 'KDA 789C', vehicleStatus: 'IN_SHOP', description: 'Transmission overhaul — full rebuild required', cost: 185000, isActive: true,  dateOpened: '2026-07-01' },
-  { id: '2', vehicleId: '1', vehicleName: 'Toyota Hino 300', vehicleReg: 'KCB 123A', vehicleStatus: 'AVAILABLE', description: 'Engine oil change + air filter replacement',    cost: 15000,  isActive: false, dateOpened: '2026-06-10' },
-  { id: '3', vehicleId: '1', vehicleName: 'Toyota Hino 300', vehicleReg: 'KCB 123A', vehicleStatus: 'AVAILABLE', description: 'Front brake pad replacement',                   cost: 28000,  isActive: false, dateOpened: '2026-05-18' },
-  { id: '4', vehicleId: '6', vehicleName: 'Mitsubishi Fuso', vehicleReg: 'KDH 910F', vehicleStatus: 'AVAILABLE', description: 'Tyre rotation and balancing (all 6)',           cost: 12000,  isActive: false, dateOpened: '2026-04-22' },
-];
+export type MaintenanceLog = ApiMaintenanceLog & { vehicleName?: string; vehicleReg?: string; vehicleStatus?: string };
 
 const PAGE_TITLE: React.CSSProperties = {
   fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '24px', color: '#1A1F27', margin: '0 0 4px',
@@ -62,7 +41,7 @@ interface MaintenanceProps { userRole: Role }
 export function Maintenance({ userRole }: MaintenanceProps) {
   const canWrite = userRole === 'FLEET_MANAGER';
 
-  const [logs, setLogs] = useState<MaintenanceLog[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [filterVehicle, setFilterVehicle] = useState('');
   const [filterActive, setFilterActive] = useState('');
   const [sortField, setSortField] = useState<keyof MaintenanceLog>('dateOpened');
@@ -72,6 +51,24 @@ export function Maintenance({ userRole }: MaintenanceProps) {
   const [closeConfirm, setCloseConfirm] = useState<string | null>(null);
   const [form, setForm] = useState({ vehicleId: '', description: '', cost: '' });
   const [formError, setFormError] = useState('');
+
+  const [loading, setLoading] = useState(!USE_MOCK);
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    Promise.all([apiGetMaintenanceLogs(), apiGetVehicles()])
+      .then(([logsData, vehiclesData]) => {
+        if (mounted) {
+          setLogs(logsData.map(l => ({ ...l, vehicleName: l.vehicle?.name, vehicleReg: l.vehicle?.registrationNumber, vehicleStatus: l.vehicle?.status })));
+          setVehicles(vehiclesData);
+          setLoading(false);
+        }
+      })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
 
   function handleSort(field: string) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -87,7 +84,7 @@ export function Maintenance({ userRole }: MaintenanceProps) {
       return true;
     });
     return [...list].sort((a, b) => {
-      const va = a[sortField]; const vb = b[sortField];
+      const va = (a as any)[sortField]; const vb = (b as any)[sortField];
       if (va === vb) return 0;
       const cmp = va < vb ? -1 : 1;
       return sortDir === 'asc' ? cmp : -cmp;
@@ -96,9 +93,9 @@ export function Maintenance({ userRole }: MaintenanceProps) {
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const selectedVehicle = VEHICLES_FOR_MAINT.find(v => v.id === form.vehicleId);
+  const selectedVehicle = vehicles.find(v => v.id === form.vehicleId);
 
-  function addLog() {
+  async function addLog() {
     setFormError('');
     if (!form.vehicleId || !form.description || !form.cost) {
       setFormError('All fields are required.');
@@ -108,22 +105,58 @@ export function Maintenance({ userRole }: MaintenanceProps) {
       setFormError('Cannot log maintenance — vehicle is currently ON_TRIP.');
       return;
     }
-    const v = VEHICLES_FOR_MAINT.find(v => v.id === form.vehicleId)!;
-    setLogs(ls => [{
-      id: String(Date.now()), vehicleId: v.id, vehicleName: v.name, vehicleReg: v.reg,
-      vehicleStatus: 'IN_SHOP', description: form.description, cost: Number(form.cost),
-      isActive: true, dateOpened: new Date().toISOString().slice(0, 10),
-    }, ...ls]);
-    setForm({ vehicleId: '', description: '', cost: '' });
-    setShowAdd(false);
-    toast.success(`Maintenance logged for ${v.reg}`, { description: `${v.name} is now IN_SHOP.` });
+    
+    if (USE_MOCK) {
+      const v = vehicles.find(v => v.id === form.vehicleId)!;
+      setLogs(ls => [{
+        id: String(Date.now()), vehicleId: v.id, vehicleName: v.name, vehicleReg: v.registrationNumber,
+        vehicleStatus: 'IN_SHOP', description: form.description, cost: Number(form.cost),
+        isActive: true, createdAt: new Date().toISOString(), dateOpened: new Date().toISOString().slice(0, 10),
+      }, ...ls]);
+      setForm({ vehicleId: '', description: '', cost: '' });
+      setShowAdd(false);
+      toast.success(`Maintenance logged`, { description: `Vehicle is now IN_SHOP.` });
+      return;
+    }
+
+    try {
+      const created = await apiCreateMaintenance({
+        vehicleId: form.vehicleId,
+        description: form.description,
+        cost: Number(form.cost)
+      });
+      const v = vehicles.find(v => v.id === form.vehicleId);
+      setLogs(ls => [{ ...created, vehicleName: v?.name, vehicleReg: v?.registrationNumber, vehicleStatus: 'IN_SHOP' }, ...ls]);
+      setForm({ vehicleId: '', description: '', cost: '' });
+      setShowAdd(false);
+      toast.success(`Maintenance logged`, { description: `Vehicle is now IN_SHOP.` });
+    } catch (err: any) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+        setFormError(Object.values(err.fieldErrors).join(', '));
+      } else {
+        setFormError(err.message || 'Failed to log maintenance');
+      }
+    }
   }
 
-  function closeLog(id: string) {
-    const log = logs.find(l => l.id === id);
-    setLogs(ls => ls.map(l => l.id === id ? { ...l, isActive: false, vehicleStatus: 'AVAILABLE' } : l));
-    setCloseConfirm(null);
-    toast.success(`Maintenance closed`, { description: `${log?.vehicleReg} is now AVAILABLE.` });
+  async function closeLog(id: string) {
+    if (USE_MOCK) {
+      const log = logs.find(l => l.id === id);
+      setLogs(ls => ls.map(l => l.id === id ? { ...l, isActive: false, vehicleStatus: 'AVAILABLE' } : l));
+      setCloseConfirm(null);
+      toast.success(`Maintenance closed`, { description: `${log?.vehicleReg} is now AVAILABLE.` });
+      return;
+    }
+
+    try {
+      await apiCloseMaintenance(id);
+      const log = logs.find(l => l.id === id);
+      setLogs(ls => ls.map(l => l.id === id ? { ...l, isActive: false, vehicleStatus: 'AVAILABLE' } : l));
+      setCloseConfirm(null);
+      toast.success(`Maintenance closed`, { description: `${log?.vehicleReg} is now AVAILABLE.` });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to close maintenance');
+    }
   }
 
   const uniqueVehicles = Array.from(new Map(logs.map(l => [l.vehicleId, { id: l.vehicleId, reg: l.vehicleReg }])).values());
@@ -169,7 +202,7 @@ export function Maintenance({ userRole }: MaintenanceProps) {
               <PlainHeader label="Vehicle" />
               <PlainHeader label="Description" />
               <SortableHeader label="Cost"        field="cost"       sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-              <SortableHeader label="Date Opened" field="dateOpened" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableHeader label="Date Opened" field="createdAt"  sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <PlainHeader label="Status" />
               <PlainHeader label="" />
             </tr>
@@ -185,7 +218,7 @@ export function Maintenance({ userRole }: MaintenanceProps) {
                 </td>
                 <td style={{ ...TABLE_TD, maxWidth: 300 }}>{log.description}</td>
                 <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {log.cost.toLocaleString()}</td>
-                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{log.dateOpened}</td>
+                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(log.createdAt).toLocaleDateString()}</td>
                 <td style={TABLE_TD}><StatusBadge status={log.isActive ? 'ACTIVE' : 'CLOSED'} /></td>
                 <td style={TABLE_TD}>
                   {canWrite && log.isActive && (
@@ -222,8 +255,8 @@ export function Maintenance({ userRole }: MaintenanceProps) {
                 <select style={{ ...INPUT_STYLE, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer' }}
                   value={form.vehicleId} onChange={e => { setForm(f => ({ ...f, vehicleId: e.target.value })); setFormError(''); }}>
                   <option value="">Select vehicle…</option>
-                  {VEHICLES_FOR_MAINT.map(v => (
-                    <option key={v.id} value={v.id}>{v.reg} — {v.name} [{v.status}]</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registrationNumber} — {v.name} [{v.status}]</option>
                   ))}
                 </select>
                 {selectedVehicle?.status === 'ON_TRIP' && (

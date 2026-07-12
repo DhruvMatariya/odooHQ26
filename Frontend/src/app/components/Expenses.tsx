@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, X, Info, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -6,32 +6,11 @@ import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import { apiGetExpenses, apiCreateExpense, apiGetVehicles, type ApiExpense, type ApiVehicle, ApiError } from '../../lib/api';
 
-interface Expense {
-  id: string;
-  vehicleId: string;
-  vehicleReg: string;
-  vehicleName: string;
-  type: 'TOLL' | 'OTHER';
-  amount: number;
-  date: string;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
-const ALL_VEHICLES = [
-  { id: '1', reg: 'KCB 123A', name: 'Toyota Hino 300' },
-  { id: '2', reg: 'KBZ 456B', name: 'Mercedes Sprinter' },
-  { id: '4', reg: 'KDB 321D', name: 'MAN TGX 26.440' },
-  { id: '6', reg: 'KDH 910F', name: 'Mitsubishi Fuso' },
-];
-
-const INITIAL_EXPENSES: Expense[] = [
-  { id: '1', vehicleId: '2', vehicleReg: 'KBZ 456B', vehicleName: 'Mercedes Sprinter', type: 'TOLL',  amount: 2400,  date: '2026-07-10' },
-  { id: '2', vehicleId: '1', vehicleReg: 'KCB 123A', vehicleName: 'Toyota Hino 300',   type: 'TOLL',  amount: 1800,  date: '2026-07-08' },
-  { id: '3', vehicleId: '4', vehicleReg: 'KDB 321D', vehicleName: 'MAN TGX 26.440',    type: 'OTHER', amount: 8500,  date: '2026-07-05' },
-  { id: '4', vehicleId: '1', vehicleReg: 'KCB 123A', vehicleName: 'Toyota Hino 300',   type: 'TOLL',  amount: 2400,  date: '2026-07-03' },
-  { id: '5', vehicleId: '6', vehicleReg: 'KDH 910F', vehicleName: 'Mitsubishi Fuso',   type: 'OTHER', amount: 4200,  date: '2026-06-28' },
-  { id: '6', vehicleId: '2', vehicleReg: 'KBZ 456B', vehicleName: 'Mercedes Sprinter', type: 'TOLL',  amount: 3600,  date: '2026-06-22' },
-];
+type Expense = ApiExpense & { vehicleReg?: string; vehicleName?: string };
 
 const PAGE_TITLE: React.CSSProperties = {
   fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '24px', color: '#1A1F27', margin: '0 0 4px',
@@ -61,18 +40,35 @@ interface ExpensesProps { userRole: Role }
 export function Expenses({ userRole }: ExpensesProps) {
   const canWrite = userRole === 'FLEET_MANAGER' || userRole === 'FINANCIAL_ANALYST';
 
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [loading, setLoading] = useState(!USE_MOCK);
   const [filterVehicle, setFilterVehicle] = useState('');
   const [filterType, setFilterType] = useState('');
-  const [sortField, setSortField] = useState<keyof Expense>('date');
+  const [sortField, setSortField] = useState<string>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ vehicleId: '', type: 'TOLL' as 'TOLL' | 'OTHER', amount: '', date: '' });
 
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    Promise.all([apiGetExpenses(), apiGetVehicles()])
+      .then(([expensesData, vehiclesData]) => {
+        if (mounted) {
+          setExpenses(expensesData.map(e => ({ ...e, vehicleReg: e.vehicle?.registrationNumber, vehicleName: e.vehicle?.name })));
+          setVehicles(vehiclesData);
+          setLoading(false);
+        }
+      })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
   function handleSort(field: string) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortField(field as keyof Expense); setSortDir('asc'); }
+    else { setSortField(field); setSortDir('asc'); }
     setPage(1);
   }
 
@@ -83,7 +79,7 @@ export function Expenses({ userRole }: ExpensesProps) {
       return true;
     });
     return [...list].sort((a, b) => {
-      const va = a[sortField]; const vb = b[sortField];
+      const va = (a as any)[sortField]; const vb = (b as any)[sortField];
       if (va === vb) return 0;
       const cmp = va < vb ? -1 : 1;
       return sortDir === 'asc' ? cmp : -cmp;
@@ -96,16 +92,41 @@ export function Expenses({ userRole }: ExpensesProps) {
   const tollTotal = filtered.filter(e => e.type === 'TOLL').reduce((s, e) => s + e.amount, 0);
   const otherTotal = filtered.filter(e => e.type === 'OTHER').reduce((s, e) => s + e.amount, 0);
 
-  function addExpense() {
-    if (!form.vehicleId || !form.amount || !form.date) return;
-    const v = ALL_VEHICLES.find(v => v.id === form.vehicleId)!;
-    setExpenses(es => [{
-      id: String(Date.now()), vehicleId: v.id, vehicleReg: v.reg, vehicleName: v.name,
-      type: form.type, amount: Number(form.amount), date: form.date,
-    }, ...es]);
-    setForm({ vehicleId: '', type: 'TOLL', amount: '', date: '' });
-    setShowAdd(false);
-    toast.success(`Expense logged for ${v.reg}`, { description: `${form.type} — KES ${Number(form.amount).toLocaleString()}` });
+  async function addExpense() {
+    if (!form.vehicleId || !form.amount || !form.date) {
+      toast.error('All fields are required');
+      return;
+    }
+    const v = vehicles.find(v => v.id === form.vehicleId);
+    if (USE_MOCK) {
+      setExpenses(es => [{
+        id: String(Date.now()), vehicleId: form.vehicleId,
+        vehicleReg: v?.registrationNumber, vehicleName: v?.name,
+        type: form.type, amount: Number(form.amount), date: form.date,
+      }, ...es]);
+      setForm({ vehicleId: '', type: 'TOLL', amount: '', date: '' });
+      setShowAdd(false);
+      toast.success(`Expense logged`);
+      return;
+    }
+    try {
+      const created = await apiCreateExpense({
+        vehicleId: form.vehicleId,
+        type: form.type,
+        amount: Number(form.amount),
+        date: form.date,
+      });
+      setExpenses(es => [{ ...created, vehicleReg: v?.registrationNumber, vehicleName: v?.name }, ...es]);
+      setForm({ vehicleId: '', type: 'TOLL', amount: '', date: '' });
+      setShowAdd(false);
+      toast.success(`Expense logged for ${v?.registrationNumber}`, { description: `${form.type} — KES ${Number(form.amount).toLocaleString()}` });
+    } catch (err: any) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+        Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
+      } else {
+        toast.error(err.message || 'Failed to add expense');
+      }
+    }
   }
 
   return (
@@ -144,7 +165,7 @@ export function Expenses({ userRole }: ExpensesProps) {
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
         <select style={{ ...INPUT_STYLE, cursor: 'pointer' }} value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)}>
           <option value="">All vehicles</option>
-          {ALL_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.reg}</option>)}
+          {vehicles.map(v => <option key={v.id} value={v.id}>{v.registrationNumber}</option>)}
         </select>
         <select style={{ ...INPUT_STYLE, cursor: 'pointer' }} value={filterType} onChange={e => setFilterType(e.target.value)}>
           <option value="">All types</option>
@@ -176,12 +197,12 @@ export function Expenses({ userRole }: ExpensesProps) {
             ) : paged.map((exp, i) => (
               <tr key={exp.id} style={{ borderTop: '1px solid rgba(0,0,0,0.05)', background: i % 2 === 0 ? '#fff' : '#FEFEFE' }}>
                 <td style={TABLE_TD}>
-                  <div style={{ fontWeight: 600, color: '#004643' }}>{exp.vehicleReg}</div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{exp.vehicleName}</div>
+                  <div style={{ fontWeight: 600, color: '#004643' }}>{exp.vehicleReg || exp.vehicle?.registrationNumber}</div>
+                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{exp.vehicleName || exp.vehicle?.name}</div>
                 </td>
                 <td style={TABLE_TD}><StatusBadge status={exp.type} /></td>
                 <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {exp.amount.toLocaleString()}</td>
-                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{exp.date}</td>
+                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(exp.date).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -212,9 +233,9 @@ export function Expenses({ userRole }: ExpensesProps) {
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Vehicle</label>
                 <select style={{ ...INPUT_STYLE, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer' }}
-                  value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
+                   value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Select vehicle…</option>
-                  {ALL_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.reg} — {v.name}</option>)}
+                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.registrationNumber} — {v.name}</option>)}
                 </select>
               </div>
               <div>

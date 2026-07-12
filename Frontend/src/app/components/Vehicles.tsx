@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, X, ArrowLeft, Info, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -7,17 +7,11 @@ import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import { apiGetVehicles, apiCreateVehicle, apiUpdateVehicle, apiRetireVehicle, type ApiVehicle, ApiError } from '../../lib/api';
 
-export interface Vehicle {
-  id: string;
-  registrationNumber: string;
-  name: string;
-  type: string;
-  maxLoadCapacity: number;
-  odometer: number;
-  acquisitionCost: number;
-  status: string;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+export type Vehicle = ApiVehicle;
 
 const INITIAL_VEHICLES: Vehicle[] = [
   { id: '1', registrationNumber: 'KCB 123A', name: 'Toyota Hino 300',   type: 'TRUCK',       maxLoadCapacity: 5000,  odometer: 45230,  acquisitionCost: 4200000, status: 'AVAILABLE' },
@@ -72,7 +66,7 @@ interface VehiclesProps { userRole: Role }
 
 export function Vehicles({ userRole }: VehiclesProps) {
   const canWrite = userRole === 'FLEET_MANAGER';
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(USE_MOCK ? INITIAL_VEHICLES : []);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -86,6 +80,17 @@ export function Vehicles({ userRole }: VehiclesProps) {
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [retireConfirm, setRetireConfirm] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Vehicle>>({});
+
+  const [loading, setLoading] = useState(!USE_MOCK);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    apiGetVehicles()
+      .then(data => { if (mounted) { setVehicles(data); setLoading(false); } })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
 
   function handleSort(field: string) {
     if (sortField === field) {
@@ -128,24 +133,63 @@ export function Vehicles({ userRole }: VehiclesProps) {
     setShowAdd(true);
   }
 
-  function saveVehicle() {
-    if (!form.registrationNumber || !form.name) return;
-    if (editVehicle) {
-      setVehicles(vs => vs.map(v => v.id === editVehicle.id ? { ...v, ...form } as Vehicle : v));
-      toast.success(`${form.name} updated successfully`);
-    } else {
-      setVehicles(vs => [...vs, { ...form, id: String(Date.now()), status: 'AVAILABLE' } as Vehicle]);
-      toast.success(`${form.name} added to fleet`);
+  async function saveVehicle() {
+    if (!form.registrationNumber || !form.name) {
+      toast.error('Registration number and name are required');
+      return;
     }
-    setShowAdd(false);
+    
+    if (USE_MOCK) {
+      if (editVehicle) {
+        setVehicles(vs => vs.map(v => v.id === editVehicle.id ? { ...v, ...form } as Vehicle : v));
+        toast.success(`${form.name} updated successfully`);
+      } else {
+        setVehicles(vs => [...vs, { ...form, id: String(Date.now()), status: 'AVAILABLE' } as Vehicle]);
+        toast.success(`${form.name} added to fleet`);
+      }
+      setShowAdd(false);
+      return;
+    }
+
+    try {
+      if (editVehicle) {
+        const updated = await apiUpdateVehicle(editVehicle.id, form);
+        setVehicles(vs => vs.map(v => v.id === editVehicle.id ? updated : v));
+        toast.success(`${form.name} updated successfully`);
+      } else {
+        const created = await apiCreateVehicle(form);
+        setVehicles(vs => [created, ...vs]);
+        toast.success(`${form.name} added to fleet`);
+      }
+      setShowAdd(false);
+    } catch (err: any) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+        Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
+      } else {
+        toast.error(err.message || 'Failed to save vehicle');
+      }
+    }
   }
 
-  function retireVehicle(id: string) {
-    const v = vehicles.find(v => v.id === id);
-    setVehicles(vs => vs.map(v => v.id === id ? { ...v, status: 'RETIRED' } : v));
-    setRetireConfirm(null);
-    toast.success(`${v?.name} has been retired`);
-    if (selectedId === id) setView('list');
+  async function retireVehicle(id: string) {
+    const v = vehicles.find(veh => veh.id === id);
+    if (USE_MOCK) {
+      setVehicles(vs => vs.map(veh => veh.id === id ? { ...veh, status: 'RETIRED' } : veh));
+      setRetireConfirm(null);
+      toast.success(`${v?.name} has been retired`);
+      if (selectedId === id) setView('list');
+      return;
+    }
+
+    try {
+      await apiRetireVehicle(id);
+      setVehicles(vs => vs.map(veh => veh.id === id ? { ...veh, status: 'RETIRED' } : veh));
+      setRetireConfirm(null);
+      toast.success(`${v?.name} has been retired`);
+      if (selectedId === id) setView('list');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to retire vehicle');
+    }
   }
 
   // — Detail view —

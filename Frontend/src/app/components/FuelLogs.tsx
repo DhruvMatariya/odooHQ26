@@ -1,37 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, X, Fuel } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import { apiGetFuelLogs, apiCreateFuelLog, apiGetVehicles, type ApiFuelLog, type ApiVehicle, ApiError } from '../../lib/api';
 
-interface FuelLog {
-  id: string;
-  vehicleId: string;
-  vehicleReg: string;
-  vehicleName: string;
-  liters: number;
-  cost: number;
-  date: string;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
-const ALL_VEHICLES = [
-  { id: '1', reg: 'KCB 123A', name: 'Toyota Hino 300' },
-  { id: '2', reg: 'KBZ 456B', name: 'Mercedes Sprinter' },
-  { id: '3', reg: 'KDA 789C', name: 'Isuzu FRR 90L' },
-  { id: '4', reg: 'KDB 321D', name: 'MAN TGX 26.440' },
-  { id: '6', reg: 'KDH 910F', name: 'Mitsubishi Fuso' },
-];
-
-const INITIAL_LOGS: FuelLog[] = [
-  { id: '1', vehicleId: '1', vehicleReg: 'KCB 123A', vehicleName: 'Toyota Hino 300',  liters: 85,  cost: 15725,  date: '2026-07-08' },
-  { id: '2', vehicleId: '2', vehicleReg: 'KBZ 456B', vehicleName: 'Mercedes Sprinter', liters: 60,  cost: 11100,  date: '2026-07-07' },
-  { id: '3', vehicleId: '4', vehicleReg: 'KDB 321D', vehicleName: 'MAN TGX 26.440',   liters: 120, cost: 22200,  date: '2026-07-05' },
-  { id: '4', vehicleId: '1', vehicleReg: 'KCB 123A', vehicleName: 'Toyota Hino 300',  liters: 72,  cost: 13320,  date: '2026-06-25' },
-  { id: '5', vehicleId: '6', vehicleReg: 'KDH 910F', vehicleName: 'Mitsubishi Fuso',  liters: 95,  cost: 17575,  date: '2026-06-20' },
-  { id: '6', vehicleId: '2', vehicleReg: 'KBZ 456B', vehicleName: 'Mercedes Sprinter', liters: 55,  cost: 10175,  date: '2026-06-15' },
-];
+type FuelLog = ApiFuelLog & { vehicleReg?: string; vehicleName?: string };
 
 const PAGE_TITLE: React.CSSProperties = {
   fontFamily: 'Poppins, sans-serif', fontWeight: 700, fontSize: '24px', color: '#1A1F27', margin: '0 0 4px',
@@ -61,24 +39,41 @@ interface FuelLogsProps { userRole: Role }
 export function FuelLogs({ userRole }: FuelLogsProps) {
   const canWrite = userRole === 'FLEET_MANAGER' || userRole === 'FINANCIAL_ANALYST';
 
-  const [logs, setLogs] = useState<FuelLog[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<FuelLog[]>([]);
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [loading, setLoading] = useState(!USE_MOCK);
   const [filterVehicle, setFilterVehicle] = useState('');
-  const [sortField, setSortField] = useState<keyof FuelLog>('date');
+  const [sortField, setSortField] = useState<string>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ vehicleId: '', liters: '', cost: '', date: '' });
 
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    Promise.all([apiGetFuelLogs(), apiGetVehicles()])
+      .then(([logsData, vehiclesData]) => {
+        if (mounted) {
+          setLogs(logsData.map(l => ({ ...l, vehicleReg: l.vehicle?.registrationNumber, vehicleName: l.vehicle?.name })));
+          setVehicles(vehiclesData);
+          setLoading(false);
+        }
+      })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
   function handleSort(field: string) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortField(field as keyof FuelLog); setSortDir('asc'); }
+    else { setSortField(field); setSortDir('asc'); }
     setPage(1);
   }
 
   const filtered = useMemo(() => {
     let list = logs.filter(l => !filterVehicle || l.vehicleId === filterVehicle);
     return [...list].sort((a, b) => {
-      const va = a[sortField]; const vb = b[sortField];
+      const va = (a as any)[sortField]; const vb = (b as any)[sortField];
       if (va === vb) return 0;
       const cmp = va < vb ? -1 : 1;
       return sortDir === 'asc' ? cmp : -cmp;
@@ -89,16 +84,41 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
   const totalLiters = filtered.reduce((s, l) => s + l.liters, 0);
   const totalCost = filtered.reduce((s, l) => s + l.cost, 0);
 
-  function addLog() {
-    if (!form.vehicleId || !form.liters || !form.cost || !form.date) return;
-    const v = ALL_VEHICLES.find(v => v.id === form.vehicleId)!;
-    setLogs(ls => [{
-      id: String(Date.now()), vehicleId: v.id, vehicleReg: v.reg, vehicleName: v.name,
-      liters: Number(form.liters), cost: Number(form.cost), date: form.date,
-    }, ...ls]);
-    setForm({ vehicleId: '', liters: '', cost: '', date: '' });
-    setShowAdd(false);
-    toast.success(`Fuel log added for ${v.reg}`, { description: `${form.liters} L — KES ${Number(form.cost).toLocaleString()}` });
+  async function addLog() {
+    if (!form.vehicleId || !form.liters || !form.cost || !form.date) {
+      toast.error('All fields are required');
+      return;
+    }
+    const v = vehicles.find(v => v.id === form.vehicleId);
+    if (USE_MOCK) {
+      setLogs(ls => [{
+        id: String(Date.now()), vehicleId: form.vehicleId,
+        vehicleReg: v?.registrationNumber, vehicleName: v?.name,
+        liters: Number(form.liters), cost: Number(form.cost), date: form.date,
+      }, ...ls]);
+      setForm({ vehicleId: '', liters: '', cost: '', date: '' });
+      setShowAdd(false);
+      toast.success(`Fuel log added`);
+      return;
+    }
+    try {
+      const created = await apiCreateFuelLog({
+        vehicleId: form.vehicleId,
+        liters: Number(form.liters),
+        cost: Number(form.cost),
+        date: form.date,
+      });
+      setLogs(ls => [{ ...created, vehicleReg: v?.registrationNumber, vehicleName: v?.name }, ...ls]);
+      setForm({ vehicleId: '', liters: '', cost: '', date: '' });
+      setShowAdd(false);
+      toast.success(`Fuel log added for ${v?.registrationNumber}`, { description: `${form.liters} L — KES ${Number(form.cost).toLocaleString()}` });
+    } catch (err: any) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+        Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
+      } else {
+        toast.error(err.message || 'Failed to add fuel log');
+      }
+    }
   }
 
   return (
@@ -131,7 +151,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
         <select style={{ ...INPUT_STYLE, cursor: 'pointer' }} value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)}>
           <option value="">All vehicles</option>
-          {ALL_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.reg}</option>)}
+          {vehicles.map(v => <option key={v.id} value={v.id}>{v.registrationNumber}</option>)}
         </select>
         {filterVehicle && <button onClick={() => setFilterVehicle('')} style={{ ...BTN_GHOST, display: 'flex', alignItems: 'center', gap: 4 }}><X size={13} />Clear</button>}
         <span style={{ marginLeft: 'auto', fontSize: '13px', color: '#6B7280' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
@@ -155,13 +175,13 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
             ) : paged.map((log, i) => (
               <tr key={log.id} style={{ borderTop: '1px solid rgba(0,0,0,0.05)', background: i % 2 === 0 ? '#fff' : '#FEFEFE' }}>
                 <td style={TABLE_TD}>
-                  <div style={{ fontWeight: 600, color: '#004643' }}>{log.vehicleReg}</div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{log.vehicleName}</div>
+                  <div style={{ fontWeight: 600, color: '#004643' }}>{log.vehicleReg || log.vehicle?.registrationNumber}</div>
+                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{log.vehicleName || log.vehicle?.name}</div>
                 </td>
                 <td style={{ ...TABLE_TD, fontWeight: 500 }}>{log.liters} L</td>
                 <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {log.cost.toLocaleString()}</td>
                 <td style={{ ...TABLE_TD, color: '#6B7280' }}>KES {(log.cost / log.liters).toFixed(0)}/L</td>
-                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{log.date}</td>
+                <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(log.date).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -193,9 +213,9 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Vehicle</label>
                 <select style={{ ...INPUT_STYLE, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer' }}
-                  value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
+                   value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Select vehicle…</option>
-                  {ALL_VEHICLES.map(v => <option key={v.id} value={v.id}>{v.reg} — {v.name}</option>)}
+                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.registrationNumber} — {v.name}</option>)}
                 </select>
               </div>
               {[

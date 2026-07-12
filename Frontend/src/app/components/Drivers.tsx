@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, X, ArrowLeft, AlertTriangle, Shield, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -7,17 +7,11 @@ import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import { apiGetDrivers, apiCreateDriver, apiUpdateDriver, apiSuspendDriver, type ApiDriver, ApiError } from '../../lib/api';
 
-export interface Driver {
-  id: string;
-  name: string;
-  licenseNumber: string;
-  licenseCategory: string;
-  licenseExpiryDate: string;
-  contactNumber: string;
-  safetyScore: number;
-  status: string;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+export type Driver = ApiDriver;
 
 const INITIAL_DRIVERS: Driver[] = [
   { id: '1', name: 'John Kamau',       licenseNumber: 'DL-ABC-123456', licenseCategory: 'CE', licenseExpiryDate: '2027-08-15', contactNumber: '+254712345678', safetyScore: 95, status: 'AVAILABLE' },
@@ -67,7 +61,7 @@ export function Drivers({ userRole }: DriversProps) {
   const canWrite = userRole === 'FLEET_MANAGER';
   const canSuspend = userRole === 'SAFETY_OFFICER' || userRole === 'FLEET_MANAGER';
 
-  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
+  const [drivers, setDrivers] = useState<Driver[]>(USE_MOCK ? INITIAL_DRIVERS : []);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [sortField, setSortField] = useState<keyof Driver>('name');
@@ -79,6 +73,17 @@ export function Drivers({ userRole }: DriversProps) {
   const [editDriver, setEditDriver] = useState<Driver | null>(null);
   const [suspendConfirm, setSuspendConfirm] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Driver>>({});
+
+  const [loading, setLoading] = useState(!USE_MOCK);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    apiGetDrivers()
+      .then(data => { if (mounted) { setDrivers(data); setLoading(false); } })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
 
   function handleSort(field: string) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -106,23 +111,57 @@ export function Drivers({ userRole }: DriversProps) {
   function openAdd() { setForm({ licenseCategory: 'CE', status: 'AVAILABLE' }); setEditDriver(null); setShowAdd(true); }
   function openEdit(d: Driver) { setForm({ ...d }); setEditDriver(d); setShowAdd(true); }
 
-  function saveDriver() {
+  async function saveDriver() {
     if (!form.name || !form.licenseNumber) return;
-    if (editDriver) {
-      setDrivers(ds => ds.map(d => d.id === editDriver.id ? { ...d, ...form } as Driver : d));
-      toast.success(`${form.name}'s profile updated`);
-    } else {
-      setDrivers(ds => [...ds, { ...form, id: String(Date.now()), status: 'AVAILABLE', safetyScore: 80 } as Driver]);
-      toast.success(`${form.name} added as a driver`);
+    if (USE_MOCK) {
+      if (editDriver) {
+        setDrivers(ds => ds.map(d => d.id === editDriver.id ? { ...d, ...form } as Driver : d));
+        toast.success(`${form.name}'s profile updated`);
+      } else {
+        setDrivers(ds => [...ds, { ...form, id: String(Date.now()), status: 'AVAILABLE', safetyScore: 80 } as Driver]);
+        toast.success(`${form.name} added as a driver`);
+      }
+      setShowAdd(false);
+      return;
     }
-    setShowAdd(false);
+
+    try {
+      if (editDriver) {
+        const updated = await apiUpdateDriver(editDriver.id, form);
+        setDrivers(ds => ds.map(d => d.id === editDriver.id ? updated : d));
+        toast.success(`${form.name}'s profile updated`);
+      } else {
+        const created = await apiCreateDriver(form);
+        setDrivers(ds => [created, ...ds]);
+        toast.success(`${form.name} added as a driver`);
+      }
+      setShowAdd(false);
+    } catch (err: any) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+        Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
+      } else {
+        toast.error(err.message || 'Failed to save driver');
+      }
+    }
   }
 
-  function suspendDriver(id: string) {
+  async function suspendDriver(id: string) {
     const d = drivers.find(dr => dr.id === id);
-    setDrivers(ds => ds.map(dr => dr.id === id ? { ...dr, status: 'SUSPENDED' } : dr));
-    setSuspendConfirm(null);
-    toast.success(`${d?.name} has been suspended`, { description: 'They can no longer be assigned to trips.' });
+    if (USE_MOCK) {
+      setDrivers(ds => ds.map(dr => dr.id === id ? { ...dr, status: 'SUSPENDED' } : dr));
+      setSuspendConfirm(null);
+      toast.success(`${d?.name} has been suspended`, { description: 'They can no longer be assigned to trips.' });
+      return;
+    }
+    
+    try {
+      await apiSuspendDriver(id);
+      setDrivers(ds => ds.map(dr => dr.id === id ? { ...dr, status: 'SUSPENDED' } : dr));
+      setSuspendConfirm(null);
+      toast.success(`${d?.name} has been suspended`, { description: 'They can no longer be assigned to trips.' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to suspend driver');
+    }
   }
 
   // — Detail —

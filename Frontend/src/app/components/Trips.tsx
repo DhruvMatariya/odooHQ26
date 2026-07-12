@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, X, ArrowLeft, Check, AlertCircle, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -7,43 +7,14 @@ import { Pagination } from './Pagination';
 import { EmptyState } from './EmptyState';
 import { SortableHeader, PlainHeader, type SortDir } from './SortableHeader';
 import type { Role } from './Layout';
+import {
+  apiGetTrips, apiCreateTrip, apiDispatchTrip, apiCompleteTrip, apiCancelTrip,
+  apiGetAvailableVehicles, apiGetAvailableDrivers, type ApiTrip, type ApiVehicle, type ApiDriver, ApiError
+} from '../../lib/api';
 
-interface Trip {
-  id: string;
-  source: string;
-  destination: string;
-  vehicleId: string;
-  vehicleName: string;
-  vehicleReg: string;
-  driverId: string;
-  driverName: string;
-  cargoWeight: number;
-  plannedDistance: number;
-  status: 'DRAFT' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED';
-  createdAt: string;
-  finalOdometer?: number;
-  fuelConsumed?: number;
-}
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
-const AVAILABLE_VEHICLES = [
-  { id: '1', reg: 'KCB 123A', name: 'Toyota Hino 300',  maxLoad: 5000 },
-  { id: '4', reg: 'KDB 321D', name: 'MAN TGX 26.440',   maxLoad: 12000 },
-  { id: '6', reg: 'KDH 910F', name: 'Mitsubishi Fuso',  maxLoad: 7000 },
-];
-
-const AVAILABLE_DRIVERS = [
-  { id: '1', name: 'John Kamau',      expiry: '2027-08-15' },
-  { id: '3', name: 'Peter Odhiambo', expiry: '2027-01-10' },
-  { id: '5', name: 'James Otieno',   expiry: '2028-05-01' },
-];
-
-const INITIAL_TRIPS: Trip[] = [
-  { id: '1', source: 'Nairobi', destination: 'Mombasa',  vehicleId: '2', vehicleName: 'Mercedes Sprinter', vehicleReg: 'KBZ 456B', driverId: '2', driverName: 'Mary Wanjiru',    cargoWeight: 1800, plannedDistance: 486, status: 'DISPATCHED', createdAt: '2026-07-10' },
-  { id: '2', source: 'Kisumu',  destination: 'Nakuru',   vehicleId: '1', vehicleName: 'Toyota Hino 300',   vehicleReg: 'KCB 123A', driverId: '1', driverName: 'John Kamau',      cargoWeight: 3200, plannedDistance: 186, status: 'COMPLETED',  createdAt: '2026-07-08', finalOdometer: 45416, fuelConsumed: 85 },
-  { id: '3', source: 'Nairobi', destination: 'Thika',    vehicleId: '4', vehicleName: 'MAN TGX 26.440',    vehicleReg: 'KDB 321D', driverId: '3', driverName: 'Peter Odhiambo', cargoWeight: 5000, plannedDistance: 45,  status: 'DRAFT',     createdAt: '2026-07-12' },
-  { id: '4', source: 'Nairobi', destination: 'Eldoret',  vehicleId: '1', vehicleName: 'Toyota Hino 300',   vehicleReg: 'KCB 123A', driverId: '1', driverName: 'John Kamau',      cargoWeight: 2500, plannedDistance: 314, status: 'CANCELLED', createdAt: '2026-07-05' },
-  { id: '5', source: 'Nakuru',  destination: 'Kisumu',   vehicleId: '6', vehicleName: 'Mitsubishi Fuso',   vehicleReg: 'KDH 910F', driverId: '5', driverName: 'James Otieno',   cargoWeight: 4200, plannedDistance: 160, status: 'COMPLETED',  createdAt: '2026-07-03', finalOdometer: 68000, fuelConsumed: 62 },
-];
+export type Trip = ApiTrip;
 
 const STATUS_TABS = ['ALL', 'DRAFT', 'DISPATCHED', 'COMPLETED', 'CANCELLED'];
 const PAGE_SIZE = 6;
@@ -133,7 +104,7 @@ interface TripsProps { userRole: Role }
 export function Trips({ userRole }: TripsProps) {
   const canCreate = userRole === 'DRIVER';
 
-  const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('ALL');
   const [sortField, setSortField] = useState<keyof Trip>('createdAt');
@@ -150,6 +121,30 @@ export function Trips({ userRole }: TripsProps) {
     cargoWeight: '', plannedDistance: '',
   });
   const [createError, setCreateError] = useState('');
+
+  const [loading, setLoading] = useState(!USE_MOCK);
+  const [availVehicles, setAvailVehicles] = useState<ApiVehicle[]>([]);
+  const [availDrivers, setAvailDrivers] = useState<ApiDriver[]>([]);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    apiGetTrips()
+      .then(data => { if (mounted) { setTrips(data); setLoading(false); } })
+      .catch(err => { toast.error(err.message); if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  async function loadCreateData() {
+    if (USE_MOCK) return;
+    try {
+      const [vs, ds] = await Promise.all([apiGetAvailableVehicles(), apiGetAvailableDrivers()]);
+      setAvailVehicles(vs);
+      setAvailDrivers(ds);
+    } catch (err: any) {
+      toast.error('Failed to load available resources');
+    }
+  }
 
   function handleSort(field: string) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -174,54 +169,98 @@ export function Trips({ userRole }: TripsProps) {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const selected = trips.find(t => t.id === selectedId);
 
-  function createTrip() {
+  async function createTrip() {
     setCreateError('');
-    const vehicle = AVAILABLE_VEHICLES.find(v => v.id === createForm.vehicleId);
-    const driver = AVAILABLE_DRIVERS.find(d => d.id === createForm.driverId);
-    if (!createForm.source || !createForm.destination || !vehicle || !driver) {
+    const cargo = Number(createForm.cargoWeight);
+    if (!USE_MOCK) {
+      try {
+        const created = await apiCreateTrip({
+          ...createForm,
+          cargoWeight: cargo,
+          plannedDistance: Number(createForm.plannedDistance)
+        });
+        setTrips(ts => [created, ...ts]);
+        setCreateForm({ source: '', destination: '', vehicleId: '', driverId: '', cargoWeight: '', plannedDistance: '' });
+        setShowCreate(false);
+        toast.success(`Trip created: ${createForm.source} → ${createForm.destination}`, { description: 'Status: DRAFT — dispatch when ready.' });
+      } catch (err: any) {
+        if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
+          setCreateError(Object.values(err.fieldErrors).join(', '));
+        } else {
+          setCreateError(err.message || 'Failed to create trip');
+        }
+      }
+      return;
+    }
+    
+    if (!createForm.source || !createForm.destination) {
       setCreateError('All fields are required.');
       return;
     }
-    const cargo = Number(createForm.cargoWeight);
-    if (vehicle && cargo > vehicle.maxLoad) {
-      setCreateError(`Cargo weight (${cargo} kg) exceeds vehicle max load capacity (${vehicle.maxLoad} kg).`);
-      return;
-    }
-    const newTrip: Trip = {
+    const newTrip: any = {
       id: String(Date.now()), source: createForm.source, destination: createForm.destination,
-      vehicleId: vehicle.id, vehicleName: vehicle.name, vehicleReg: vehicle.reg,
-      driverId: driver.id, driverName: driver.name,
+      vehicleId: createForm.vehicleId, driverId: createForm.driverId,
       cargoWeight: cargo, plannedDistance: Number(createForm.plannedDistance),
-      status: 'DRAFT', createdAt: new Date().toISOString().slice(0, 10),
+      status: 'DRAFT', createdAt: new Date().toISOString(),
     };
     setTrips(ts => [newTrip, ...ts]);
     setCreateForm({ source: '', destination: '', vehicleId: '', driverId: '', cargoWeight: '', plannedDistance: '' });
     setShowCreate(false);
-    toast.success(`Trip created: ${createForm.source} → ${createForm.destination}`, { description: 'Status: DRAFT — dispatch when ready.' });
+    toast.success(`Trip created`);
   }
 
-  function dispatchTrip(id: string) {
-    const t = trips.find(t => t.id === id);
+  async function dispatchTrip(id: string) {
+    if (!USE_MOCK) {
+      try {
+        const updated = await apiDispatchTrip(id);
+        setTrips(ts => ts.map(t => t.id === id ? updated : t));
+        toast.success(`Trip dispatched`);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to dispatch');
+      }
+      return;
+    }
     setTrips(ts => ts.map(t => t.id === id ? { ...t, status: 'DISPATCHED' } : t));
-    toast.success(`Trip dispatched`, { description: `${t?.source} → ${t?.destination} is now underway.` });
+    toast.success(`Trip dispatched`);
   }
 
-  function completeTrip() {
+  async function completeTrip() {
     if (!selectedId) return;
-    const t = trips.find(t => t.id === selectedId);
+    if (!USE_MOCK) {
+      try {
+        const updated = await apiCompleteTrip(selectedId, Number(completeForm.finalOdometer), Number(completeForm.fuelConsumed));
+        setTrips(ts => ts.map(t => t.id === selectedId ? updated : t));
+        setShowComplete(false);
+        setCompleteForm({ finalOdometer: '', fuelConsumed: '' });
+        toast.success(`Trip completed`);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to complete trip');
+      }
+      return;
+    }
     setTrips(ts => ts.map(t => t.id === selectedId
       ? { ...t, status: 'COMPLETED', finalOdometer: Number(completeForm.finalOdometer), fuelConsumed: Number(completeForm.fuelConsumed) }
       : t));
     setShowComplete(false);
     setCompleteForm({ finalOdometer: '', fuelConsumed: '' });
-    toast.success(`Trip completed`, { description: `${t?.source} → ${t?.destination}` });
+    toast.success(`Trip completed`);
   }
 
-  function cancelTrip(id: string) {
-    const t = trips.find(t => t.id === id);
+  async function cancelTrip(id: string) {
+    if (!USE_MOCK) {
+      try {
+        const updated = await apiCancelTrip(id);
+        setTrips(ts => ts.map(t => t.id === id ? updated : t));
+        setCancelConfirm(null);
+        toast.error(`Trip cancelled`);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to cancel trip');
+      }
+      return;
+    }
     setTrips(ts => ts.map(t => t.id === id ? { ...t, status: 'CANCELLED' } : t));
     setCancelConfirm(null);
-    toast.error(`Trip cancelled`, { description: `${t?.source} → ${t?.destination}` });
+    toast.error(`Trip cancelled`);
   }
 
   // Detail view
@@ -291,22 +330,22 @@ export function Trips({ userRole }: TripsProps) {
 
           <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Vehicle</div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1A1F27', marginBottom: 4, fontFamily: 'Poppins, sans-serif' }}>{selected.vehicleReg}</div>
-            <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: 12 }}>{selected.vehicleName}</div>
-            <StatusBadge status="ON_TRIP" />
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1A1F27', marginBottom: 4, fontFamily: 'Poppins, sans-serif' }}>{selected.vehicle?.registrationNumber || 'Unknown'}</div>
+            <div style={{ fontSize: '13px', color: '#6B7280', marginBottom: 12 }}>{selected.vehicle?.name || 'Unknown'}</div>
+            <StatusBadge status={selected.status === 'DRAFT' || selected.status === 'COMPLETED' || selected.status === 'CANCELLED' ? 'AVAILABLE' : 'ON_TRIP'} />
           </div>
 
           <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Driver</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#004643', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: '#F0EDE5' }}>
-                {selected.driverName.charAt(0)}
+                {(selected.driver?.name || 'U').charAt(0)}
               </div>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: '#1A1F27' }}>{selected.driverName}</div>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#1A1F27' }}>{selected.driver?.name || 'Unknown'}</div>
               </div>
             </div>
-            <StatusBadge status="ON_TRIP" />
+            <StatusBadge status={selected.status === 'DRAFT' || selected.status === 'COMPLETED' || selected.status === 'CANCELLED' ? 'AVAILABLE' : 'ON_TRIP'} />
           </div>
         </div>
 
@@ -365,7 +404,7 @@ export function Trips({ userRole }: TripsProps) {
           <p style={{ color: '#6B7280', fontSize: '14px', margin: 0 }}>{trips.length} total trips</p>
         </div>
         {canCreate && (
-          <button onClick={() => setShowCreate(true)} style={BTN_PRIMARY}><Plus size={15} /> Create Trip</button>
+          <button onClick={() => { setShowCreate(true); loadCreateData(); }} style={BTN_PRIMARY}><Plus size={15} /> Create Trip</button>
         )}
       </div>
 
@@ -426,10 +465,10 @@ export function Trips({ userRole }: TripsProps) {
               >
                 <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>{t.source} → {t.destination}</td>
                 <td style={TABLE_TD}>
-                  <div style={{ fontWeight: 500, color: '#004643' }}>{t.vehicleReg}</div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{t.vehicleName}</div>
+                  <div style={{ fontWeight: 500, color: '#004643' }}>{t.vehicle?.registrationNumber || 'Unknown'}</div>
+                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{t.vehicle?.name || 'Unknown'}</div>
                 </td>
-                <td style={TABLE_TD}>{t.driverName}</td>
+                <td style={TABLE_TD}>{t.driver?.name || 'Unknown'}</td>
                 <td style={TABLE_TD}>{t.cargoWeight.toLocaleString()} kg</td>
                 <td style={TABLE_TD}>{t.plannedDistance} km</td>
                 <td style={TABLE_TD}><StatusBadge status={t.status} /></td>
@@ -484,8 +523,8 @@ export function Trips({ userRole }: TripsProps) {
                   value={createForm.vehicleId}
                   onChange={e => setCreateForm(fv => ({ ...fv, vehicleId: e.target.value }))}>
                   <option value="">Select a vehicle…</option>
-                  {AVAILABLE_VEHICLES.map(v => (
-                    <option key={v.id} value={v.id}>{v.reg} — {v.name} (max {v.maxLoad.toLocaleString()} kg)</option>
+                  {availVehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registrationNumber} — {v.name} (max {v.maxLoadCapacity.toLocaleString()} kg)</option>
                   ))}
                 </select>
               </div>
@@ -496,8 +535,8 @@ export function Trips({ userRole }: TripsProps) {
                   value={createForm.driverId}
                   onChange={e => setCreateForm(fv => ({ ...fv, driverId: e.target.value }))}>
                   <option value="">Select a driver…</option>
-                  {AVAILABLE_DRIVERS.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} (expires {d.expiry})</option>
+                  {availDrivers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} (expires {new Date(d.licenseExpiryDate).toLocaleDateString()})</option>
                   ))}
                 </select>
               </div>
@@ -509,10 +548,10 @@ export function Trips({ userRole }: TripsProps) {
                     value={createForm.cargoWeight}
                     onChange={e => { setCreateForm(fv => ({ ...fv, cargoWeight: e.target.value })); setCreateError(''); }} />
                   {createForm.vehicleId && createForm.cargoWeight && (() => {
-                    const v = AVAILABLE_VEHICLES.find(v => v.id === createForm.vehicleId);
+                    const v = availVehicles.find(v => v.id === createForm.vehicleId);
                     const cargo = Number(createForm.cargoWeight);
-                    if (v && cargo > v.maxLoad) {
-                      return <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: '12px', color: '#B3261E' }}><AlertCircle size={12} />Exceeds vehicle max load ({v.maxLoad.toLocaleString()} kg)</div>;
+                    if (v && cargo > v.maxLoadCapacity) {
+                      return <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: '12px', color: '#B3261E' }}><AlertCircle size={12} />Exceeds vehicle max load ({v.maxLoadCapacity.toLocaleString()} kg)</div>;
                     }
                   })()}
                 </div>

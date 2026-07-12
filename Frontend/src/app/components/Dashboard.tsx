@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { KPICard } from './KPICard';
 import { StatusBadge } from './StatusBadge';
 import {
@@ -9,6 +9,9 @@ import {
   ResponsiveContainer, Legend,
 } from 'recharts';
 import type { Role } from './Layout';
+import { apiGetKpis, apiGetTrips, apiGetVehicles, type KpiData, type ApiTrip, type ApiVehicle } from '../../lib/api';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 interface DashboardProps {
   userRole: Role;
@@ -17,9 +20,9 @@ interface DashboardProps {
 
 const FLEET_STATUS_DATA = [
   { name: 'Available', value: 8, color: '#1E9E5A' },
-  { name: 'On Trip',   value: 4, color: '#1D6FE0' },
-  { name: 'In Shop',   value: 2, color: '#D98F1F' },
-  { name: 'Retired',   value: 1, color: '#B3261E' },
+  { name: 'On Trip', value: 4, color: '#1D6FE0' },
+  { name: 'In Shop', value: 2, color: '#D98F1F' },
+  { name: 'Retired', value: 1, color: '#B3261E' },
 ];
 
 const MONTHLY_TRIPS = [
@@ -32,11 +35,11 @@ const MONTHLY_TRIPS = [
 ];
 
 const RECENT_TRIPS = [
-  { id: '1', source: 'Nairobi', destination: 'Mombasa',  vehicle: 'KBZ 456B', driver: 'Mary Wanjiru',    status: 'DISPATCHED', date: '2026-07-10' },
-  { id: '2', source: 'Kisumu',  destination: 'Nakuru',   vehicle: 'KCB 123A', driver: 'John Kamau',      status: 'COMPLETED',  date: '2026-07-08' },
-  { id: '3', source: 'Nairobi', destination: 'Thika',    vehicle: 'KDB 321D', driver: 'Peter Odhiambo',  status: 'DRAFT',      date: '2026-07-12' },
-  { id: '4', source: 'Nairobi', destination: 'Eldoret',  vehicle: 'KCB 123A', driver: 'John Kamau',      status: 'CANCELLED',  date: '2026-07-05' },
-  { id: '5', source: 'Nakuru',  destination: 'Kisumu',   vehicle: 'KDB 321D', driver: 'Peter Odhiambo',  status: 'COMPLETED',  date: '2026-07-03' },
+  { id: '1', source: 'Nairobi', destination: 'Mombasa', vehicle: 'KBZ 456B', driver: 'Mary Wanjiru', status: 'DISPATCHED', date: '2026-07-10' },
+  { id: '2', source: 'Kisumu', destination: 'Nakuru', vehicle: 'KCB 123A', driver: 'John Kamau', status: 'COMPLETED', date: '2026-07-08' },
+  { id: '3', source: 'Nairobi', destination: 'Thika', vehicle: 'KDB 321D', driver: 'Peter Odhiambo', status: 'DRAFT', date: '2026-07-12' },
+  { id: '4', source: 'Nairobi', destination: 'Eldoret', vehicle: 'KCB 123A', driver: 'John Kamau', status: 'CANCELLED', date: '2026-07-05' },
+  { id: '5', source: 'Nakuru', destination: 'Kisumu', vehicle: 'KDB 321D', driver: 'Peter Odhiambo', status: 'COMPLETED', date: '2026-07-03' },
 ];
 
 /* ── Custom Tooltip so no dark background appears ── */
@@ -113,7 +116,60 @@ const PAGE_TITLE_STYLE: React.CSSProperties = {
 };
 
 export function Dashboard({ userRole, onNavigate }: DashboardProps) {
-  // No mounted guard — charts must be in DOM immediately for Recharts animation to fire
+  const [kpis, setKpis] = useState<KpiData | null>(null);
+  const [trips, setTrips] = useState<ApiTrip[]>([]);
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [loading, setLoading] = useState(!USE_MOCK);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    let mounted = true;
+    Promise.all([apiGetKpis(), apiGetTrips(), apiGetVehicles()])
+      .then(([kpiData, tripsData, vehiclesData]) => {
+        if (!mounted) return;
+        setKpis(kpiData);
+        setTrips(tripsData.slice(0, 5)); // recent 5
+        setVehicles(vehiclesData);
+        setLoading(false);
+      })
+      .catch(console.error);
+    return () => { mounted = false; };
+  }, []);
+
+  const displayKpis = USE_MOCK || !kpis ? {
+    activeVehicles: 12,
+    availableVehicles: 8,
+    vehiclesInMaintenance: 2,
+    activeTrips: 4,
+    pendingTrips: 3,
+    driversOnDuty: 4,
+    fleetUtilizationPct: 67,
+  } : kpis;
+
+  let fleetStatusData = FLEET_STATUS_DATA;
+  if (!USE_MOCK && vehicles.length > 0) {
+    const counts = { AVAILABLE: 0, ON_TRIP: 0, IN_SHOP: 0, RETIRED: 0 };
+    vehicles.forEach(v => counts[v.status as keyof typeof counts] = (counts[v.status as keyof typeof counts] || 0) + 1);
+    fleetStatusData = [
+      { name: 'Available', value: counts.AVAILABLE, color: '#1E9E5A' },
+      { name: 'On Trip', value: counts.ON_TRIP, color: '#1D6FE0' },
+      { name: 'In Shop', value: counts.IN_SHOP, color: '#D98F1F' },
+      { name: 'Retired', value: counts.RETIRED, color: '#B3261E' },
+    ];
+  }
+
+  const recentTrips = USE_MOCK || !trips.length ? RECENT_TRIPS : trips.map(t => ({
+    id: t.id,
+    source: t.source,
+    destination: t.destination,
+    vehicle: t.vehicle?.registrationNumber || 'Unknown',
+    driver: t.driver?.name || 'Unknown',
+    status: t.status,
+    date: new Date(t.createdAt).toLocaleDateString('en-GB')
+  }));
+
+  if (loading) return <div style={{ padding: 24 }}>Loading dashboard...</div>;
+
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
       {/* Header */}
@@ -128,13 +184,13 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       {/* KPI Cards — staggered */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          <KPICard key="av"  label="Active Vehicles"  value={12}    icon={<Truck size={18} />}         trend="up"   trendText="+2 this month" />,
-          <KPICard key="av2" label="Available"         value={8}     icon={<Truck size={18} />}         accent="#1E9E5A" trend="flat" trendText="Steady" />,
-          <KPICard key="mnt" label="In Maintenance"    value={2}     icon={<Wrench size={18} />}        accent="#D98F1F" trend="down" trendText="−1 vs last week" />,
-          <KPICard key="atr" label="Active Trips"      value={4}     icon={<MapPin size={18} />}        accent="#1D6FE0" trend="up"  trendText="+1 today" />,
-          <KPICard key="pnd" label="Pending Trips"     value={3}     icon={<Clock size={18} />}         accent="#6B7280" />,
-          <KPICard key="dod" label="Drivers on Duty"   value={4}     icon={<Users size={18} />}         accent="#7C3AED" />,
-          <KPICard key="fu"  label="Fleet Utilisation" value="67%"   icon={<PercentIcon size={18} />}   accent="#004643" trend="up"  trendText="+5% vs last month" />,
+          <KPICard key="av" label="Active Vehicles" value={displayKpis.activeVehicles} icon={<Truck size={18} />} trend="up" trendText="+2 this month" />,
+          <KPICard key="av2" label="Available" value={displayKpis.availableVehicles} icon={<Truck size={18} />} accent="#1E9E5A" trend="flat" trendText="Steady" />,
+          <KPICard key="mnt" label="In Maintenance" value={displayKpis.vehiclesInMaintenance} icon={<Wrench size={18} />} accent="#D98F1F" trend="down" trendText="−1 vs last week" />,
+          <KPICard key="atr" label="Active Trips" value={displayKpis.activeTrips} icon={<MapPin size={18} />} accent="#1D6FE0" trend="up" trendText="+1 today" />,
+          <KPICard key="pnd" label="Pending Trips" value={displayKpis.pendingTrips} icon={<Clock size={18} />} accent="#6B7280" />,
+          <KPICard key="dod" label="Drivers on Duty" value={displayKpis.driversOnDuty} icon={<Users size={18} />} accent="#7C3AED" />,
+          <KPICard key="fu" label="Fleet Utilisation" value={`${displayKpis.fleetUtilizationPct}%`} icon={<PercentIcon size={18} />} accent="#004643" trend="up" trendText="+5% vs last month" />,
         ].map((card, i) => (
           <div key={i} style={{ animation: `fadeUp 0.45s ease ${0.05 * i + 0.1}s both` }}>
             {card}
@@ -179,7 +235,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie
-                data={FLEET_STATUS_DATA}
+                data={fleetStatusData}
                 cx="50%" cy="50%"
                 innerRadius={55} outerRadius={80}
                 dataKey="value" paddingAngle={3}
@@ -187,7 +243,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                 animationBegin={200}
                 animationDuration={900}
               >
-                {FLEET_STATUS_DATA.map((entry, i) => (
+                {fleetStatusData.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
@@ -195,7 +251,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
             </PieChart>
           </ResponsiveContainer>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {FLEET_STATUS_DATA.map(d => (
+            {fleetStatusData.map(d => (
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '13px' }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
                 <span style={{ flex: 1, color: '#374151' }}>{d.name}</span>
@@ -233,7 +289,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
             </tr>
           </thead>
           <tbody>
-            {RECENT_TRIPS.map((trip, i) => (
+            {recentTrips.map((trip, i) => (
               <tr
                 key={trip.id}
                 style={{
