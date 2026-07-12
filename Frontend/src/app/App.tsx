@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { Auth } from './components/Auth';
 import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
+import { Dashboard } from './components/Dashboard';          // Fleet Manager only
+import { DriverDashboard } from './components/DriverDashboard';
+import { SafetyDashboard } from './components/SafetyDashboard';
+import { FinanceDashboard } from './components/FinanceDashboard';
 import { Vehicles } from './components/Vehicles';
 import { Drivers } from './components/Drivers';
 import { Trips } from './components/Trips';
@@ -22,9 +25,9 @@ interface User {
 
 const ROLE_DEFAULT_PAGE: Record<Role, PageKey> = {
   FLEET_MANAGER:    'dashboard',
-  DRIVER:           'trips',
-  SAFETY_OFFICER:   'drivers',
-  FINANCIAL_ANALYST:'reports',
+  DRIVER:           'dashboard',   // driver's own dashboard
+  SAFETY_OFFICER:   'dashboard',   // safety's own dashboard
+  FINANCIAL_ANALYST:'dashboard',   // finance's own dashboard
 };
 
 export default function App() {
@@ -48,15 +51,20 @@ export default function App() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard':   return <Dashboard userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
-      case 'vehicles':    return <Vehicles userRole={user!.role} />;
-      case 'drivers':     return <Drivers userRole={user!.role} />;
-      case 'trips':       return <Trips userRole={user!.role} />;
+      case 'dashboard':
+        // Each role gets its own tailored dashboard
+        if (user!.role === 'DRIVER')            return <DriverDashboard  userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
+        if (user!.role === 'SAFETY_OFFICER')    return <SafetyDashboard  userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
+        if (user!.role === 'FINANCIAL_ANALYST') return <FinanceDashboard userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
+        return <Dashboard userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />; // FLEET_MANAGER
+      case 'vehicles':    return <Vehicles   userRole={user!.role} />;
+      case 'drivers':     return <Drivers    userRole={user!.role} />;
+      case 'trips':       return <Trips      userRole={user!.role} />;
       case 'maintenance': return <Maintenance userRole={user!.role} />;
-      case 'fuel-logs':   return <FuelLogs userRole={user!.role} />;
-      case 'expenses':    return <Expenses userRole={user!.role} />;
-      case 'reports':     return <Reports userRole={user!.role} />;
-      default:            return <Dashboard userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
+      case 'fuel-logs':   return <FuelLogs   userRole={user!.role} />;
+      case 'expenses':    return <Expenses   userRole={user!.role} />;
+      case 'reports':     return <Reports    userRole={user!.role} />;
+      default:            return <Dashboard  userRole={user!.role} onNavigate={p => setPage(p as PageKey)} />;
     }
   }
 

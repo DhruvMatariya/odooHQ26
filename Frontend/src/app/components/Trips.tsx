@@ -19,6 +19,17 @@ export type Trip = ApiTrip;
 const STATUS_TABS = ['ALL', 'DRAFT', 'DISPATCHED', 'COMPLETED', 'CANCELLED'];
 const PAGE_SIZE = 6;
 
+/* ── Seed trips for mock mode (includes all status stages) ── */
+const MOCK_TRIPS: any[] = [
+  { id: 'm1', source: 'Nairobi',  destination: 'Mombasa',  vehicleId: '2', driverId: '1', cargoWeight: 12, plannedDistance: 485, status: 'DISPATCHED', createdAt: '2026-07-10T08:00:00Z', vehicle: { registrationNumber: 'KBZ 456B' }, driver: { name: 'Mary Wanjiru'   } },
+  { id: 'm2', source: 'Kisumu',   destination: 'Nakuru',   vehicleId: '1', driverId: '2', cargoWeight: 8,  plannedDistance: 170, status: 'COMPLETED',  createdAt: '2026-07-08T06:00:00Z', vehicle: { registrationNumber: 'KCB 123A' }, driver: { name: 'John Kamau'     } },
+  { id: 'm3', source: 'Nairobi',  destination: 'Thika',    vehicleId: '4', driverId: '3', cargoWeight: 5,  plannedDistance: 45,  status: 'DRAFT',      createdAt: '2026-07-12T07:00:00Z', vehicle: { registrationNumber: 'KDB 321D' }, driver: { name: 'Peter Odhiambo' } },
+  { id: 'm4', source: 'Nairobi',  destination: 'Eldoret',  vehicleId: '1', driverId: '2', cargoWeight: 20, plannedDistance: 310, status: 'CANCELLED',  createdAt: '2026-07-05T09:00:00Z', vehicle: { registrationNumber: 'KCB 123A' }, driver: { name: 'John Kamau'     } },
+  { id: 'm5', source: 'Nakuru',   destination: 'Kisumu',   vehicleId: '4', driverId: '3', cargoWeight: 15, plannedDistance: 170, status: 'COMPLETED',  createdAt: '2026-07-03T10:00:00Z', vehicle: { registrationNumber: 'KDB 321D' }, driver: { name: 'Peter Odhiambo' } },
+  { id: 'm6', source: 'Mombasa',  destination: 'Nairobi',  vehicleId: '2', driverId: '1', cargoWeight: 18, plannedDistance: 485, status: 'CANCELLED',  createdAt: '2026-07-01T11:00:00Z', vehicle: { registrationNumber: 'KBZ 456B' }, driver: { name: 'Mary Wanjiru'   } },
+  { id: 'm7', source: 'Nairobi',  destination: 'Nyeri',    vehicleId: '6', driverId: '4', cargoWeight: 6,  plannedDistance: 160, status: 'DRAFT',      createdAt: '2026-07-12T09:00:00Z', vehicle: { registrationNumber: 'KDH 910F' }, driver: { name: 'Grace Njeri'    } },
+];
+
 const TABLE_TH: React.CSSProperties = {
   padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600,
   color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.06em', whiteSpace: 'nowrap',
@@ -104,7 +115,7 @@ interface TripsProps { userRole: Role }
 export function Trips({ userRole }: TripsProps) {
   const canCreate = userRole === 'DRIVER';
 
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<Trip[]>(USE_MOCK ? MOCK_TRIPS : []);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('ALL');
   const [sortField, setSortField] = useState<keyof Trip>('createdAt');

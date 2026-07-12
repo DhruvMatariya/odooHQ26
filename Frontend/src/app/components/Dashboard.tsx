@@ -5,8 +5,8 @@ import {
   Truck, Users, Wrench, MapPin, Clock, PercentIcon,
 } from 'lucide-react';
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Legend,
+  AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Legend, CartesianGrid
 } from 'recharts';
 import type { Role } from './Layout';
 import { apiGetKpis, apiGetTrips, apiGetVehicles, type KpiData, type ApiTrip, type ApiVehicle } from '../../lib/api';
@@ -210,16 +210,27 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
             Monthly Trip Volume
           </h3>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={MONTHLY_TRIPS} barSize={20} barGap={4}>
+            <AreaChart data={MONTHLY_TRIPS} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#004643" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#004643" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradCancelled" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#FCA5A5" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#FCA5A5" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.04)" />
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(0,70,67,0.05)' }} />
+              <Tooltip content={<CustomBarTooltip />} />
               <Legend iconSize={10} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="completed" name="Completed" fill="#004643" radius={[4, 4, 0, 0]}
-                isAnimationActive animationBegin={350} animationDuration={900} animationEasing="ease-out" />
-              <Bar dataKey="cancelled" name="Cancelled" fill="#FCA5A5" radius={[4, 4, 0, 0]}
-                isAnimationActive animationBegin={500} animationDuration={900} animationEasing="ease-out" />
-            </BarChart>
+              <Area type="monotone" dataKey="completed" name="Completed" stroke="#004643" strokeWidth={2.5} fill="url(#gradCompleted)" dot={{ fill: '#004643', r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }}
+                isAnimationActive animationBegin={350} animationDuration={1000} />
+              <Area type="monotone" dataKey="cancelled" name="Cancelled" stroke="#FCA5A5" strokeWidth={2.5} fill="url(#gradCancelled)" dot={{ fill: '#FCA5A5', r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }}
+                isAnimationActive animationBegin={500} animationDuration={1000} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 

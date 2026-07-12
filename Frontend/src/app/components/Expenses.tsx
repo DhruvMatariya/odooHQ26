@@ -119,7 +119,7 @@ export function Expenses({ userRole }: ExpensesProps) {
       setExpenses(es => [{ ...created, vehicleReg: v?.registrationNumber, vehicleName: v?.name }, ...es]);
       setForm({ vehicleId: '', type: 'TOLL', amount: '', date: '' });
       setShowAdd(false);
-      toast.success(`Expense logged for ${v?.registrationNumber}`, { description: `${form.type} — KES ${Number(form.amount).toLocaleString()}` });
+      toast.success(`Expense logged for ${v?.registrationNumber}`, { description: `${form.type} — ₹${Number(form.amount).toLocaleString()}` });
     } catch (err: any) {
       if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
         Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
@@ -150,9 +150,9 @@ export function Expenses({ userRole }: ExpensesProps) {
       {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
         {[
-          { label: 'Total Expenses', value: `KES ${totalAmount.toLocaleString()}` },
-          { label: 'Toll Charges', value: `KES ${tollTotal.toLocaleString()}` },
-          { label: 'Other Expenses', value: `KES ${otherTotal.toLocaleString()}` },
+          { label: 'Total Expenses', value: `₹${totalAmount.toLocaleString()}` },
+          { label: 'Toll Charges', value: `₹${tollTotal.toLocaleString()}` },
+          { label: 'Other Expenses', value: `₹${otherTotal.toLocaleString()}` },
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', borderRadius: '12px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: 500, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
@@ -201,7 +201,7 @@ export function Expenses({ userRole }: ExpensesProps) {
                   <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{exp.vehicleName || exp.vehicle?.name}</div>
                 </td>
                 <td style={TABLE_TD}><StatusBadge status={exp.type} /></td>
-                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {exp.amount.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>₹{exp.amount.toLocaleString()}</td>
                 <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(exp.date).toLocaleDateString()}</td>
               </tr>
             ))}
@@ -210,7 +210,7 @@ export function Expenses({ userRole }: ExpensesProps) {
             <tfoot>
               <tr style={{ borderTop: '2px solid rgba(0,0,0,0.08)', background: '#FAFAFA' }}>
                 <td colSpan={2} style={{ ...TABLE_TD, fontWeight: 700, color: '#1A1F27' }}>Total ({filtered.length} records)</td>
-                <td style={{ ...TABLE_TD, fontWeight: 700, color: '#004643' }}>KES {totalAmount.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, fontWeight: 700, color: '#004643' }}>₹{totalAmount.toLocaleString()}</td>
                 <td style={TABLE_TD} />
               </tr>
             </tfoot>
@@ -256,7 +256,7 @@ export function Expenses({ userRole }: ExpensesProps) {
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Amount (KES)</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Amount (₹)</label>
                 <input type="number" min="0" style={{ ...INPUT_STYLE, width: '100%', boxSizing: 'border-box' as const }} placeholder="e.g. 2400"
                   value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
               </div>

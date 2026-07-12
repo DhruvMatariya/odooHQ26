@@ -242,7 +242,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
             {[
               { label: 'Odometer',         value: `${fmt(selected.odometer)} km` },
-              { label: 'Acquisition Cost', value: `KES ${fmt(selected.acquisitionCost)}` },
+              { label: 'Acquisition Cost', value: `₹${fmt(selected.acquisitionCost)}` },
               { label: 'Max Load',         value: `${fmt(selected.maxLoadCapacity)} kg` },
               { label: 'Vehicle Type',     value: selected.type.replace(/_/g, ' ') },
             ].map(s => (
@@ -284,7 +284,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
                 {MAINTENANCE_HISTORY.map(m => (
                   <tr key={m.id} style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                     <td style={TABLE_TD}>{m.description}</td>
-                    <td style={TABLE_TD}>KES {fmt(m.cost)}</td>
+                    <td style={TABLE_TD}>₹{fmt(m.cost)}</td>
                     <td style={TABLE_TD}>{m.date}</td>
                     <td style={TABLE_TD}><StatusBadge status={m.isActive ? 'ACTIVE' : 'CLOSED'} /></td>
                   </tr>
@@ -305,7 +305,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
                   <tr key={f.id} style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                     <td style={TABLE_TD}>{f.date}</td>
                     <td style={TABLE_TD}>{f.liters} L</td>
-                    <td style={TABLE_TD}>KES {fmt(f.cost)}</td>
+                    <td style={TABLE_TD}>₹{fmt(f.cost)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,7 +317,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {[
               { label: 'Fuel Efficiency',    value: '2.6 km/L',        good: true },
-              { label: 'Operational Cost',   value: 'KES 178,845',     good: null },
+              { label: 'Operational Cost',   value: '₹178,845',     good: null },
               { label: 'Return on Investment', value: '12.4%',         good: true },
             ].map(s => (
               <div key={s.label} style={{ background: '#fff', borderRadius: '12px', padding: '28px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)', textAlign: 'center' }}>
@@ -421,7 +421,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
                 <td style={{ ...TABLE_TD, color: '#6B7280' }}>{v.type.replace(/_/g, ' ')}</td>
                 <td style={TABLE_TD}>{fmt(v.maxLoadCapacity)} kg</td>
                 <td style={TABLE_TD}>{fmt(v.odometer)} km</td>
-                <td style={TABLE_TD}>KES {fmt(v.acquisitionCost)}</td>
+                <td style={TABLE_TD}>₹{fmt(v.acquisitionCost)}</td>
                 <td style={TABLE_TD}><StatusBadge status={v.status} /></td>
                 <td style={TABLE_TD} onClick={e => e.stopPropagation()}>
                   {canWrite && <button onClick={() => openEdit(v)} style={BTN_GHOST}>Edit</button>}
@@ -469,7 +469,7 @@ export function Vehicles({ userRole }: VehiclesProps) {
               {([
                 { label: 'Max Load Capacity (kg)', key: 'maxLoadCapacity' },
                 { label: 'Odometer (km)',           key: 'odometer' },
-                { label: 'Acquisition Cost (KES)',  key: 'acquisitionCost' },
+                { label: 'Acquisition Cost (₹)',  key: 'acquisitionCost' },
               ] as const).map(f => (
                 <div key={f.key}>
                   <label style={LABEL}>{f.label}</label>

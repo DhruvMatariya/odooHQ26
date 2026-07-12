@@ -111,7 +111,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
       setLogs(ls => [{ ...created, vehicleReg: v?.registrationNumber, vehicleName: v?.name }, ...ls]);
       setForm({ vehicleId: '', liters: '', cost: '', date: '' });
       setShowAdd(false);
-      toast.success(`Fuel log added for ${v?.registrationNumber}`, { description: `${form.liters} L — KES ${Number(form.cost).toLocaleString()}` });
+      toast.success(`Fuel log added for ${v?.registrationNumber}`, { description: `${form.liters} L — ₹${Number(form.cost).toLocaleString()}` });
     } catch (err: any) {
       if (err instanceof ApiError && Object.keys(err.fieldErrors).length > 0) {
         Object.entries(err.fieldErrors).forEach(([field, msg]) => toast.error(`${field}: ${msg}`));
@@ -138,7 +138,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
         {[
           { label: 'Total Records', value: filtered.length, unit: '' },
           { label: 'Total Liters', value: totalLiters.toLocaleString(), unit: ' L' },
-          { label: 'Total Cost', value: `KES ${totalCost.toLocaleString()}`, unit: '' },
+          { label: 'Total Cost', value: `₹${totalCost.toLocaleString()}`, unit: '' },
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', borderRadius: '12px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: 500, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
@@ -179,8 +179,8 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
                   <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{log.vehicleName || log.vehicle?.name}</div>
                 </td>
                 <td style={{ ...TABLE_TD, fontWeight: 500 }}>{log.liters} L</td>
-                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {log.cost.toLocaleString()}</td>
-                <td style={{ ...TABLE_TD, color: '#6B7280' }}>KES {(log.cost / log.liters).toFixed(0)}/L</td>
+                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>₹{log.cost.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, color: '#6B7280' }}>₹{(log.cost / log.liters).toFixed(0)}/L</td>
                 <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(log.date).toLocaleDateString()}</td>
               </tr>
             ))}
@@ -190,7 +190,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
               <tr style={{ borderTop: '2px solid rgba(0,0,0,0.08)', background: '#FAFAFA' }}>
                 <td style={{ ...TABLE_TD, fontWeight: 700, color: '#1A1F27' }}>Total ({filtered.length} records)</td>
                 <td style={{ ...TABLE_TD, fontWeight: 700, color: '#1A1F27' }}>{totalLiters.toLocaleString()} L</td>
-                <td style={{ ...TABLE_TD, fontWeight: 700, color: '#004643' }}>KES {totalCost.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, fontWeight: 700, color: '#004643' }}>₹{totalCost.toLocaleString()}</td>
                 <td colSpan={2} style={TABLE_TD} />
               </tr>
             </tfoot>
@@ -220,7 +220,7 @@ export function FuelLogs({ userRole }: FuelLogsProps) {
               </div>
               {[
                 { label: 'Liters', key: 'liters', placeholder: 'e.g. 85' },
-                { label: 'Cost (KES)', key: 'cost', placeholder: 'e.g. 15725' },
+                { label: 'Cost (₹)', key: 'cost', placeholder: 'e.g. 15725' },
               ].map(f => (
                 <div key={f.key}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>{f.label}</label>

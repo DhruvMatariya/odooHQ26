@@ -42,7 +42,7 @@ function effColor(eff: number) {
 }
 
 function exportCSV() {
-  const headers = ['Reg No', 'Name', 'Fuel Efficiency (km/L)', 'Operational Cost (KES)', 'ROI (%)', 'Total Distance (km)'];
+  const headers = ['Reg No', 'Name', 'Fuel Efficiency (km/L)', 'Operational Cost (₹)', 'ROI (%)', 'Total Distance (km)'];
   const rows = VEHICLE_REPORTS.map(v => [v.reg, v.name, v.fuelEfficiency, v.operationalCost, v.roi, v.totalDistance]);
   const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -87,7 +87,7 @@ export function Reports({ userRole }: ReportsProps) {
       {/* Summary KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Total Operational Cost', value: `KES ${totalOpCost.toLocaleString()}`, sub: 'All vehicles combined' },
+          { label: 'Total Operational Cost', value: `₹${totalOpCost.toLocaleString()}`, sub: 'All vehicles combined' },
           { label: 'Avg Fleet ROI', value: `${avgROI}%`, sub: 'Revenue vs total cost', positive: Number(avgROI) > 0 },
           { label: 'Avg Fuel Efficiency', value: `${avgEff} km/L`, sub: 'Fleet average' },
         ].map(s => (
@@ -109,14 +109,14 @@ export function Reports({ userRole }: ReportsProps) {
       {/* Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ background: '#fff', borderRadius: '12px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#1A1F27' }}>Operational Cost by Vehicle (KES '000)</h3>
+          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#1A1F27' }}>Operational Cost by Vehicle (₹'000)</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData} barSize={32}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
               <XAxis dataKey="reg" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
               <Tooltip
-                formatter={(v: number) => [`KES ${(v * 1000).toLocaleString()}`, 'Op. Cost']}
+                formatter={(v: number) => [`₹${(v * 1000).toLocaleString()}`, 'Op. Cost']}
                 contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: 13 }}
               />
               <Bar dataKey="cost" radius={[4, 4, 0, 0]}>
@@ -168,8 +168,8 @@ export function Reports({ userRole }: ReportsProps) {
                 </td>
                 <td style={TABLE_TD}>{v.totalDistance.toLocaleString()} km</td>
                 <td style={{ ...TABLE_TD, fontWeight: 600, color: effColor(v.fuelEfficiency) }}>{v.fuelEfficiency} km/L</td>
-                <td style={{ ...TABLE_TD, fontWeight: 500 }}>KES {v.operationalCost.toLocaleString()}</td>
-                <td style={TABLE_TD}>KES {v.acquisitionCost.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, fontWeight: 500 }}>₹{v.operationalCost.toLocaleString()}</td>
+                <td style={TABLE_TD}>₹{v.acquisitionCost.toLocaleString()}</td>
                 <td style={{ ...TABLE_TD, fontWeight: 700, color: roiColor(v.roi) }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {v.roi >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}

@@ -164,12 +164,12 @@ export function Auth({ onLogin }: AuthProps) {
           </div>
         )}
 
-        {/* Live API notice (non-mock mode) */}
+        {/* Live API notice (non-mock mode)
         {!USE_MOCK && mode === 'login' && (
           <div style={{ background: '#EDE9FE', borderRadius: '8px', padding: '10px 14px', marginBottom: 20, fontSize: '12px', color: '#7C3AED' }}>
             🔌 <strong>Live mode</strong> — connecting to <code>{import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1'}</code>
           </div>
-        )}
+        )} */}
 
         {/* Error banner */}
         {error && (

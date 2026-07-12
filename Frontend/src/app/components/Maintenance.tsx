@@ -217,7 +217,7 @@ export function Maintenance({ userRole }: MaintenanceProps) {
                   <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{log.vehicleName}</div>
                 </td>
                 <td style={{ ...TABLE_TD, maxWidth: 300 }}>{log.description}</td>
-                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>KES {log.cost.toLocaleString()}</td>
+                <td style={{ ...TABLE_TD, fontWeight: 600, color: '#1A1F27' }}>₹{log.cost.toLocaleString()}</td>
                 <td style={{ ...TABLE_TD, color: '#6B7280' }}>{new Date(log.createdAt).toLocaleDateString()}</td>
                 <td style={TABLE_TD}><StatusBadge status={log.isActive ? 'ACTIVE' : 'CLOSED'} /></td>
                 <td style={TABLE_TD}>
@@ -275,7 +275,7 @@ export function Maintenance({ userRole }: MaintenanceProps) {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Cost (KES)</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: 5 }}>Cost (₹)</label>
                 <input type="number" min="0" style={{ ...INPUT_STYLE, width: '100%', boxSizing: 'border-box' as const }} placeholder="e.g. 25000"
                   value={form.cost} onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} />
               </div>
