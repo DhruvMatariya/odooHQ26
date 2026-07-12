@@ -19,14 +19,25 @@ export async function listAvailableDrivers(req, res) {
 }
 
 export async function createDriver(req, res) {
+  // Pre-check for a clean 409 — the try/catch below also catches the P2002 that
+  // can slip through if two requests race between this check and the insert.
   const existing = await prisma.driver.findUnique({ where: { licenseNumber: req.body.licenseNumber } });
   if (existing) {
     throw new AppError(409, "License number in use", `${req.body.licenseNumber} is already registered`);
   }
-  const driver = await prisma.driver.create({
-    data: { ...req.body, licenseExpiryDate: new Date(req.body.licenseExpiryDate) },
-  });
-  res.status(201).json(driver);
+
+  try {
+    const driver = await prisma.driver.create({
+      data: { ...req.body, licenseExpiryDate: new Date(req.body.licenseExpiryDate) },
+    });
+    res.status(201).json(driver);
+  } catch (err) {
+    // P2002 = unique constraint violation — handles the race between the findUnique above and the insert.
+    if (err?.code === "P2002") {
+      throw new AppError(409, "License number in use", `${req.body.licenseNumber} is already registered`);
+    }
+    throw err;
+  }
 }
 
 export async function getDriver(req, res) {

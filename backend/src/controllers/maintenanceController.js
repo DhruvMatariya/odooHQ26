@@ -5,6 +5,7 @@ export async function listMaintenance(req, res) {
   const { vehicleId } = req.query;
   const logs = await prisma.maintenanceLog.findMany({
     where: { ...(vehicleId && { vehicleId }) },
+    include: { vehicle: true },
     orderBy: { createdAt: "desc" },
   });
   res.json(logs);
@@ -23,7 +24,10 @@ export async function createMaintenance(req, res) {
     }
 
     await tx.vehicle.update({ where: { id: vehicleId }, data: { status: "IN_SHOP" } });
-    return tx.maintenanceLog.create({ data: { vehicleId, description, cost, isActive: true } });
+    return tx.maintenanceLog.create({
+      data: { vehicleId, description, cost, isActive: true },
+      include: { vehicle: true },
+    });
   });
 
   res.status(201).json(log);
@@ -44,6 +48,7 @@ export async function closeMaintenance(req, res) {
     return tx.maintenanceLog.update({
       where: { id: existing.id },
       data: { isActive: false, closedAt: new Date() },
+      include: { vehicle: true },
     });
   });
 

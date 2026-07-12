@@ -42,6 +42,7 @@ export async function createTrip(req, res) {
 
   const trip = await prisma.trip.create({
     data: { source, destination, vehicleId, driverId, cargoWeight, plannedDistance, status: "DRAFT" },
+    include: { vehicle: true, driver: true },
   });
   res.status(201).json(trip);
 }
@@ -68,8 +69,9 @@ export async function dispatchTrip(req, res) {
     return tx.trip.update({
       where: { id: existing.id },
       data: { status: "DISPATCHED", dispatchedAt: new Date() },
+      include: { vehicle: true, driver: true },
     });
-  });
+  }, { timeout: 15000 });
   res.json(trip);
 }
 
@@ -94,8 +96,9 @@ export async function completeTrip(req, res) {
     return tx.trip.update({
       where: { id: existing.id },
       data: { status: "COMPLETED", finalOdometer, fuelConsumed, completedAt: new Date() },
+      include: { vehicle: true, driver: true },
     });
-  });
+  }, { timeout: 15000 });
   res.json(trip);
 }
 
@@ -111,7 +114,11 @@ export async function cancelTrip(req, res) {
     await tx.vehicle.update({ where: { id: existing.vehicleId }, data: { status: "AVAILABLE" } });
     await tx.driver.update({ where: { id: existing.driverId }, data: { status: "AVAILABLE" } });
 
-    return tx.trip.update({ where: { id: existing.id }, data: { status: "CANCELLED" } });
-  });
+    return tx.trip.update({
+      where: { id: existing.id },
+      data: { status: "CANCELLED" },
+      include: { vehicle: true, driver: true },
+    });
+  }, { timeout: 15000 });
   res.json(trip);
 }

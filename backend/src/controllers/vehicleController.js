@@ -17,14 +17,25 @@ export async function listAvailableVehicles(req, res) {
 }
 
 export async function createVehicle(req, res) {
+  // Pre-check for a clean 409 — the try/catch below also catches the P2002 that
+  // can slip through if two requests race between this check and the insert.
   const existing = await prisma.vehicle.findUnique({
     where: { registrationNumber: req.body.registrationNumber },
   });
   if (existing) {
     throw new AppError(409, "Registration number in use", `${req.body.registrationNumber} is already registered`);
   }
-  const vehicle = await prisma.vehicle.create({ data: req.body });
-  res.status(201).json(vehicle);
+
+  try {
+    const vehicle = await prisma.vehicle.create({ data: req.body });
+    res.status(201).json(vehicle);
+  } catch (err) {
+    // P2002 = unique constraint violation — handles the race between the findUnique above and the insert.
+    if (err?.code === "P2002") {
+      throw new AppError(409, "Registration number in use", `${req.body.registrationNumber} is already registered`);
+    }
+    throw err;
+  }
 }
 
 export async function getVehicle(req, res) {
